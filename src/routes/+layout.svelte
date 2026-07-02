@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import favicon from '$lib/assets/favicon.svg';
+	import { bootLibrary } from '$lib/library.svelte';
 
 	let { children } = $props();
 
@@ -12,6 +13,7 @@
 			const { registerSW } = await import('virtual:pwa-register');
 			registerSW({ immediate: true });
 		}
+		await bootLibrary();
 	});
 </script>
 

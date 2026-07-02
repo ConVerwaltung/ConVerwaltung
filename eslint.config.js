@@ -34,5 +34,22 @@ export default defineConfig(
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
 		rules: {}
+	},
+	{
+		// ADR-0006/0008: domain and store modules stay framework-free.
+		files: ['src/lib/domain/**', 'src/lib/store/**'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: ['svelte', 'svelte/*'],
+							message: 'Domain/store modules must stay framework-free (ADR-0008).'
+						}
+					]
+				}
+			]
+		}
 	}
 );
