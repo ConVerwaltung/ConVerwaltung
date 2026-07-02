@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { createEmptyLibrary } from '$lib/domain/library';
+import { createEvent } from '$lib/domain/event';
 import { newRecordId } from '$lib/domain/ids';
 import { loadLibrary, openLibraryDb, putRecord } from './library-db';
 
@@ -22,7 +23,7 @@ describe('library store', () => {
 
 	it('round-trips: written records reload as an identical Library', async () => {
 		const dbName = uniqueDbName();
-		const event = { id: newRecordId(), name: 'Sommerfest 2026' };
+		const event = createEvent('Sommerfest 2026');
 		const person = { id: newRecordId(), name: 'Ada Lovelace' };
 
 		const db = await openLibraryDb(dbName);

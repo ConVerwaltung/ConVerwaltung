@@ -2,6 +2,8 @@
 // lives fully in memory as the single source of truth; IndexedDB is only a persistence
 // edge behind it. This module is framework-free — no `svelte` imports.
 
+import type { Event } from './event';
+
 /** Every record in the Library is keyed by a UUID v7 (ADR-0006). */
 export interface LibraryRecord {
 	readonly id: string;
@@ -14,7 +16,7 @@ export interface LibraryRecord {
  * `$state` proxy can observe them deeply.
  */
 export interface Library {
-	events: Record<string, LibraryRecord>;
+	events: Record<string, Event>;
 	persons: Record<string, LibraryRecord>;
 	participants: Record<string, LibraryRecord>;
 	importMappings: Record<string, LibraryRecord>;
@@ -22,6 +24,9 @@ export interface Library {
 }
 
 export type LibrarySection = keyof Library;
+
+/** The record type stored in a given Library section. */
+export type SectionRecord<S extends LibrarySection> = Library[S][string];
 
 export const librarySections: readonly LibrarySection[] = [
 	'events',

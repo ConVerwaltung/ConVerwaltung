@@ -18,7 +18,7 @@ describe('countRecords', () => {
 
 	it('sums records across all sections', () => {
 		const library = createEmptyLibrary();
-		library.events['e1'] = { id: 'e1' };
+		library.events['e1'] = { id: 'e1', name: 'Sommerfest' };
 		library.persons['p1'] = { id: 'p1' };
 		library.persons['p2'] = { id: 'p2' };
 

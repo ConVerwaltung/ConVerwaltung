@@ -5,12 +5,12 @@ import {
 	createEmptyLibrary,
 	librarySections,
 	type Library,
-	type LibraryRecord,
-	type LibrarySection
+	type LibrarySection,
+	type SectionRecord
 } from '$lib/domain/library';
 
 type LibraryDbSchema = {
-	[S in LibrarySection]: { key: string; value: LibraryRecord };
+	[S in LibrarySection]: { key: string; value: SectionRecord<S> };
 };
 
 export type LibraryDb = IDBPDatabase<LibraryDbSchema>;
@@ -42,10 +42,10 @@ export async function loadLibrary(db: LibraryDb): Promise<Library> {
 }
 
 /** Write-through of one changed record. `record` must be a plain object, not a `$state` proxy. */
-export async function putRecord(
+export async function putRecord<S extends LibrarySection>(
 	db: LibraryDb,
-	section: LibrarySection,
-	record: LibraryRecord
+	section: S,
+	record: SectionRecord<S>
 ): Promise<void> {
 	await db.put(section, record);
 }

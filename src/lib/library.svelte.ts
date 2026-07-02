@@ -1,6 +1,6 @@
 // The thin reactive holder of the in-memory Library (ADR-0008): the only place where
 // runes and the persistence edge meet. Domain logic stays in $lib/domain.
-import { createEmptyLibrary, type LibraryRecord, type LibrarySection } from '$lib/domain/library';
+import { createEmptyLibrary, type LibrarySection, type SectionRecord } from '$lib/domain/library';
 import { loadLibrary, openLibraryDb, putRecord, type LibraryDb } from '$lib/store/library-db';
 
 export type LibraryStatus = 'loading' | 'ready' | 'error';
@@ -25,11 +25,16 @@ export async function bootLibrary(): Promise<void> {
 }
 
 /** Mutate the in-memory Library and write the changed record through to IndexedDB. */
-export async function upsertRecord(section: LibrarySection, record: LibraryRecord): Promise<void> {
+export async function upsertRecord<S extends LibrarySection>(
+	section: S,
+	record: SectionRecord<S>
+): Promise<void> {
 	if (db === undefined) {
 		throw new Error('Library not booted — call bootLibrary() first');
 	}
 	libraryState.library[section][record.id] = record;
 	// Snapshot before persisting: IndexedDB's structured clone rejects $state proxies.
-	await putRecord(db, section, $state.snapshot(record));
+	// The snapshot of a plain record is structurally identical; the cast restores the
+	// section type that Snapshot<T> erases.
+	await putRecord(db, section, $state.snapshot(record) as SectionRecord<S>);
 }
