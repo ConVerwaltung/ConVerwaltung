@@ -17,9 +17,10 @@ type LibraryDbSchema = {
 export type LibraryDb = IDBPDatabase<LibraryDbSchema>;
 
 const DB_NAME = 'amts-library';
-// v2: `roles` object store added. The upgrade callback creates whichever section
-// stores are missing, so each bump only needs the version number raised here.
-const DB_VERSION = 2;
+// v3: `customFields` object store added (v2: `roles`). The upgrade callback creates
+// whichever section stores are missing, so each bump only needs the version number
+// raised here.
+const DB_VERSION = 3;
 
 export async function openLibraryDb(name: string = DB_NAME): Promise<LibraryDb> {
 	return openDB<LibraryDbSchema>(name, DB_VERSION, {

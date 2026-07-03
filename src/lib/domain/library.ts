@@ -2,6 +2,7 @@
 // lives fully in memory as the single source of truth; IndexedDB is only a persistence
 // edge behind it. This module is framework-free — no `svelte` imports.
 
+import type { CustomFieldDefinition } from './custom-field';
 import type { Event } from './event';
 import type { Person } from './person';
 import type { Participant } from './participant';
@@ -29,15 +30,17 @@ export interface RecordKey {
 
 /**
  * The sections of the Library, mirroring its definition in CONTEXT.md: all Events,
- * the shared Person pool, their Participants and Roles, and the organizer's Import
- * Mappings and Export Views. Records are indexed by id; plain objects (not `Map`)
- * so a `$state` proxy can observe them deeply.
+ * the shared Person pool, their Participants and Roles, the Custom Field definitions
+ * (values live on the records they describe), and the organizer's Import Mappings and
+ * Export Views. Records are indexed by id; plain objects (not `Map`) so a `$state`
+ * proxy can observe them deeply.
  */
 export interface Library {
 	events: Record<string, Event>;
 	persons: Record<string, Person>;
 	participants: Record<string, Participant>;
 	roles: Record<string, Role>;
+	customFields: Record<string, CustomFieldDefinition>;
 	importMappings: Record<string, LibraryRecord>;
 	exportViews: Record<string, LibraryRecord>;
 }
@@ -52,6 +55,7 @@ export const librarySections: readonly LibrarySection[] = [
 	'persons',
 	'participants',
 	'roles',
+	'customFields',
 	'importMappings',
 	'exportViews'
 ];
@@ -62,6 +66,7 @@ export function createEmptyLibrary(): Library {
 		persons: {},
 		participants: {},
 		roles: {},
+		customFields: {},
 		importMappings: {},
 		exportViews: {}
 	};

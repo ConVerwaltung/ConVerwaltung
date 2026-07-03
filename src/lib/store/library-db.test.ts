@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
+import type { CustomFieldDefinition } from '$lib/domain/custom-field';
 import { createEmptyLibrary } from '$lib/domain/library';
 import { createEvent } from '$lib/domain/event';
 import { newRecordId } from '$lib/domain/ids';
@@ -49,6 +50,33 @@ describe('library store', () => {
 		expected.roles[role.id] = role;
 		expected.participants[participant.id] = participant;
 		expect(library).toEqual(expected);
+		reopened.close();
+	});
+
+	it('round-trips a Custom Field definition and a Person value through save and reload', async () => {
+		const dbName = uniqueDbName();
+		const definition: CustomFieldDefinition = {
+			id: newRecordId(),
+			level: 'person',
+			type: 'text',
+			name: 'E-Mail'
+		};
+		const person = {
+			id: newRecordId(),
+			name: 'Ada Lovelace',
+			customValues: { [definition.id]: 'ada@example.org' }
+		};
+
+		const db = await openLibraryDb(dbName);
+		await putRecord(db, 'customFields', definition);
+		await putRecord(db, 'persons', person);
+		db.close();
+
+		const reopened = await openLibraryDb(dbName);
+		const library = await loadLibrary(reopened);
+
+		expect(library.customFields[definition.id]).toEqual(definition);
+		expect(library.persons[person.id]).toEqual(person);
 		reopened.close();
 	});
 
