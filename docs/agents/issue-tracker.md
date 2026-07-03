@@ -1,3 +1,8 @@
+---
+name: issue-tracker
+description: How the engineering skills create, find, and update issues as local markdown files under .scratch/.
+---
+
 # Issue tracker — local markdown
 
 Issues for this repo live as markdown files under `.scratch/<feature>/` at the repo root. There is no remote issue tracker; this file tells the engineering skills how to create, find, and update issues locally.

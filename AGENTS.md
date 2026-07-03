@@ -2,11 +2,15 @@
 
 Adaptives Teilnehmer-Management-System — see `CONTEXT.md` for the domain glossary and `docs/adr/` for architectural decisions.
 
+## Project context
+
+Event participant management: import participant lists, enrich them with custom data and notes, export structured views. Offline-first SvelteKit PWA (Svelte 5 runes, TypeScript, static adapter) — no server, no sync; all data lives in the browser's IndexedDB. Domain modules stay framework-free; the Library is held in memory as the single source of truth with IndexedDB as a write-through persistence edge.
+
 ## Agent skills
 
 ### Issue tracker
 
-Issues live as local markdown files under `.scratch/<feature>/` — no remote tracker. See `docs/agents/issue-tracker.md`.
+Issues live as local markdown files under `.scratch/` (one directory per feature, e.g. `.scratch/initial-release/`) — no remote tracker. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

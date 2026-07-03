@@ -1,3 +1,8 @@
+---
+name: domain
+description: How the engineering skills should read this repo's domain documentation (CONTEXT.md and docs/adr/).
+---
+
 # Domain docs
 
 How the engineering skills should read this repo's domain documentation.

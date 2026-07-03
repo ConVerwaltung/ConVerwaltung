@@ -1,3 +1,8 @@
+---
+name: triage-labels
+description: The five canonical triage roles and the verbatim label strings used in this repo's issue tracker.
+---
+
 # Triage labels
 
 The five canonical triage roles and the label string each maps to in this repo's issue tracker.
