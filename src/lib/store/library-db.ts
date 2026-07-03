@@ -6,6 +6,7 @@ import {
 	librarySections,
 	type Library,
 	type LibrarySection,
+	type RecordKey,
 	type SectionRecord
 } from '$lib/domain/library';
 
@@ -48,4 +49,17 @@ export async function putRecord<S extends LibrarySection>(
 	record: SectionRecord<S>
 ): Promise<void> {
 	await db.put(section, record);
+}
+
+/** Remove records in one readwrite transaction — a scoped delete lands atomically. */
+export async function deleteRecords(db: LibraryDb, keys: readonly RecordKey[]): Promise<void> {
+	if (keys.length === 0) {
+		return;
+	}
+	const sections = [...new Set(keys.map((key) => key.section))];
+	const tx = db.transaction(sections, 'readwrite');
+	for (const { section, id } of keys) {
+		void tx.objectStore(section).delete(id);
+	}
+	await tx.done;
 }

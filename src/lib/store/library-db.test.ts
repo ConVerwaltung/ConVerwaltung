@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyLibrary } from '$lib/domain/library';
 import { createEvent } from '$lib/domain/event';
 import { newRecordId } from '$lib/domain/ids';
-import { loadLibrary, openLibraryDb, putRecord } from './library-db';
+import { deleteRecords, loadLibrary, openLibraryDb, putRecord } from './library-db';
 
 // Unique DB name per test so fake-indexeddb state does not leak between tests.
 let dbCounter = 0;
@@ -59,5 +59,40 @@ describe('library store', () => {
 		expect(library.events[id]).toEqual(updated);
 		expect(Object.keys(library.events)).toHaveLength(1);
 		reopened.close();
+	});
+
+	it('deleteRecords removes the given records across sections, others survive reload', async () => {
+		const dbName = uniqueDbName();
+		const event = createEvent('Sommerfest 2026');
+		const doomedParticipant = { id: newRecordId(), event: event.id };
+		const otherParticipant = { id: newRecordId(), event: newRecordId() };
+		const person = { id: newRecordId(), name: 'Ada Lovelace' };
+
+		const db = await openLibraryDb(dbName);
+		await putRecord(db, 'events', event);
+		await putRecord(db, 'participants', doomedParticipant);
+		await putRecord(db, 'participants', otherParticipant);
+		await putRecord(db, 'persons', person);
+		await deleteRecords(db, [
+			{ section: 'events', id: event.id },
+			{ section: 'participants', id: doomedParticipant.id }
+		]);
+		db.close();
+
+		const reopened = await openLibraryDb(dbName);
+		const library = await loadLibrary(reopened);
+
+		const expected = createEmptyLibrary();
+		expected.participants[otherParticipant.id] = otherParticipant;
+		expected.persons[person.id] = person;
+		expect(library).toEqual(expected);
+		reopened.close();
+	});
+
+	it('deleteRecords with no keys is a no-op', async () => {
+		const db = await openLibraryDb(uniqueDbName());
+
+		await expect(deleteRecords(db, [])).resolves.toBeUndefined();
+		db.close();
 	});
 });

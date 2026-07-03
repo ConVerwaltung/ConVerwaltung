@@ -10,6 +10,21 @@ export interface LibraryRecord {
 }
 
 /**
+ * A record living in one Event's scope: a scoped delete of that Event removes it.
+ * Participants today; later slices add Roles and Participant-level Custom Field
+ * definitions. Persons are never event-scoped (ADR-0005).
+ */
+export interface EventScopedRecord extends LibraryRecord {
+	readonly event: string;
+}
+
+/** Address of one record in the Library: its section and id. */
+export interface RecordKey {
+	readonly section: LibrarySection;
+	readonly id: string;
+}
+
+/**
  * The sections of the Library, mirroring its definition in CONTEXT.md: all Events,
  * the shared Person pool, their Participants, and the organizer's Import Mappings
  * and Export Views. Records are indexed by id; plain objects (not `Map`) so a
@@ -18,7 +33,7 @@ export interface LibraryRecord {
 export interface Library {
 	events: Record<string, Event>;
 	persons: Record<string, LibraryRecord>;
-	participants: Record<string, LibraryRecord>;
+	participants: Record<string, EventScopedRecord>;
 	importMappings: Record<string, LibraryRecord>;
 	exportViews: Record<string, LibraryRecord>;
 }
