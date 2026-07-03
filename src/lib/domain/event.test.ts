@@ -92,12 +92,12 @@ describe('collectEventScopedDeletions', () => {
 		const autumnFest = createEvent('Herbstfest');
 		library.events[summerFest.id] = summerFest;
 		library.events[autumnFest.id] = autumnFest;
-		library.persons['ada'] = { id: 'ada' };
-		library.persons['grace'] = { id: 'grace' };
-		library.persons['kurt'] = { id: 'kurt' };
-		library.participants['pa1'] = { id: 'pa1', event: summerFest.id };
-		library.participants['pa2'] = { id: 'pa2', event: autumnFest.id };
-		library.participants['pa3'] = { id: 'pa3', event: summerFest.id };
+		library.persons['ada'] = { id: 'ada', name: 'Ada Lovelace' };
+		library.persons['grace'] = { id: 'grace', name: 'Grace Hopper' };
+		library.persons['kurt'] = { id: 'kurt', name: 'Kurt Gödel' };
+		library.participants['pa1'] = { id: 'pa1', event: summerFest.id, person: 'ada', roles: [] };
+		library.participants['pa2'] = { id: 'pa2', event: autumnFest.id, person: 'ada', roles: [] };
+		library.participants['pa3'] = { id: 'pa3', event: summerFest.id, person: 'grace', roles: [] };
 		return { library, summerFest, autumnFest };
 	}
 

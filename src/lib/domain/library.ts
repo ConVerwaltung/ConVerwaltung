@@ -3,6 +3,8 @@
 // edge behind it. This module is framework-free — no `svelte` imports.
 
 import type { Event } from './event';
+import type { Person } from './person';
+import type { Participant } from './participant';
 
 /** Every record in the Library is keyed by a UUID v7 (ADR-0006). */
 export interface LibraryRecord {
@@ -32,8 +34,8 @@ export interface RecordKey {
  */
 export interface Library {
 	events: Record<string, Event>;
-	persons: Record<string, LibraryRecord>;
-	participants: Record<string, EventScopedRecord>;
+	persons: Record<string, Person>;
+	participants: Record<string, Participant>;
 	importMappings: Record<string, LibraryRecord>;
 	exportViews: Record<string, LibraryRecord>;
 }

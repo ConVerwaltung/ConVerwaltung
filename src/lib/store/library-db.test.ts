@@ -25,10 +25,12 @@ describe('library store', () => {
 		const dbName = uniqueDbName();
 		const event = createEvent('Sommerfest 2026');
 		const person = { id: newRecordId(), name: 'Ada Lovelace' };
+		const participant = { id: newRecordId(), event: event.id, person: person.id, roles: [] };
 
 		const db = await openLibraryDb(dbName);
 		await putRecord(db, 'events', event);
 		await putRecord(db, 'persons', person);
+		await putRecord(db, 'participants', participant);
 		db.close();
 
 		const reopened = await openLibraryDb(dbName);
@@ -37,6 +39,7 @@ describe('library store', () => {
 		const expected = createEmptyLibrary();
 		expected.events[event.id] = event;
 		expected.persons[person.id] = person;
+		expected.participants[participant.id] = participant;
 		expect(library).toEqual(expected);
 		reopened.close();
 	});
@@ -64,8 +67,8 @@ describe('library store', () => {
 	it('deleteRecords removes the given records across sections, others survive reload', async () => {
 		const dbName = uniqueDbName();
 		const event = createEvent('Sommerfest 2026');
-		const doomedParticipant = { id: newRecordId(), event: event.id };
-		const otherParticipant = { id: newRecordId(), event: newRecordId() };
+		const doomedParticipant = { id: newRecordId(), event: event.id, person: 'ada', roles: [] };
+		const otherParticipant = { id: newRecordId(), event: newRecordId(), person: 'ada', roles: [] };
 		const person = { id: newRecordId(), name: 'Ada Lovelace' };
 
 		const db = await openLibraryDb(dbName);

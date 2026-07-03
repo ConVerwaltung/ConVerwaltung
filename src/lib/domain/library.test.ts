@@ -19,8 +19,8 @@ describe('countRecords', () => {
 	it('sums records across all sections', () => {
 		const library = createEmptyLibrary();
 		library.events['e1'] = { id: 'e1', name: 'Sommerfest' };
-		library.persons['p1'] = { id: 'p1' };
-		library.persons['p2'] = { id: 'p2' };
+		library.persons['p1'] = { id: 'p1', name: 'Ada Lovelace' };
+		library.persons['p2'] = { id: 'p2', name: 'Grace Hopper' };
 
 		expect(countRecords(library)).toBe(3);
 	});

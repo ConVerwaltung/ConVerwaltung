@@ -6,6 +6,7 @@
 		renameEvent,
 		type Event
 	} from '$lib/domain/event';
+	import { resolve } from '$app/paths';
 	import { libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
 
 	let eventName = $state('');
@@ -79,7 +80,7 @@
 								<button type="button" onclick={() => (renamingEventId = null)}>Abbrechen</button>
 							</form>
 						{:else}
-							{event.name}
+							<a href="{resolve('/event')}?id={event.id}">{event.name}</a>
 							<button type="button" onclick={() => startRename(event)}>Umbenennen</button>
 							<button type="button" onclick={() => deleteEvent(event)}>Löschen</button>
 						{/if}
