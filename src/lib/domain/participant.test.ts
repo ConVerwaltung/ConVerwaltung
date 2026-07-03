@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { validate as uuidValidate, version as uuidVersion } from 'uuid';
-import { addParticipant, isParticipant, listParticipants, type Participant } from './participant';
+import {
+	addParticipant,
+	collectParticipantScopedDeletions,
+	isParticipant,
+	listParticipants,
+	type Participant
+} from './participant';
+import { createEmptyLibrary } from './library';
 
 function poolWith(...participants: Participant[]): Record<string, Participant> {
 	return Object.fromEntries(participants.map((participant) => [participant.id, participant]));
@@ -51,6 +58,29 @@ describe('isParticipant', () => {
 		expect(isParticipant(participants, 'summer-fest', 'ada')).toBe(true);
 		expect(isParticipant(participants, 'summer-fest', 'grace')).toBe(false);
 		expect(isParticipant(participants, 'autumn-fest', 'ada')).toBe(false);
+	});
+});
+
+describe('collectParticipantScopedDeletions', () => {
+	it('removes only the Participant itself', () => {
+		const deletions = collectParticipantScopedDeletions('pa1');
+
+		expect(deletions).toEqual([{ section: 'participants', id: 'pa1' }]);
+	});
+
+	it('retains the Person when their last Participant is removed', () => {
+		const library = createEmptyLibrary();
+		library.persons['ada'] = { id: 'ada', name: 'Ada Lovelace' };
+		library.participants['pa1'] = { id: 'pa1', event: 'summer-fest', person: 'ada', roles: [] };
+
+		const deletions = collectParticipantScopedDeletions('pa1');
+		for (const { section, id } of deletions) {
+			delete library[section][id];
+		}
+
+		// Ada now has zero Participants — the orphan Person is retained.
+		expect(library.participants).toEqual({});
+		expect(Object.keys(library.persons)).toEqual(['ada']);
 	});
 });
 

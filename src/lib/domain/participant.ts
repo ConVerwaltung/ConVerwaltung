@@ -2,7 +2,7 @@
 // is `event`, `person`, `roles`; everything else is left to Custom Fields. Framework-free
 // — no `svelte` imports.
 import { newRecordId } from './ids';
-import type { EventScopedRecord } from './library';
+import type { EventScopedRecord, RecordKey } from './library';
 
 export interface Participant extends EventScopedRecord {
 	readonly person: string;
@@ -33,6 +33,16 @@ export function addParticipant(
 		throw new Error('Person is already a Participant in this Event');
 	}
 	return { id: newRecordId(), event: eventId, person: personId, roles: [] };
+}
+
+/**
+ * The records a scoped delete of a Participant removes: only the Participant itself,
+ * taking its roles and event-scoped data with it. The Person is never included — a
+ * Person left with zero Participants becomes an orphan and is retained as cross-event
+ * memory; only Erasure removes a Person.
+ */
+export function collectParticipantScopedDeletions(participantId: string): RecordKey[] {
+	return [{ section: 'participants', id: participantId }];
 }
 
 /** One Event's Participants in creation order — UUID v7 keys sort chronologically. */

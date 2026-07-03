@@ -57,6 +57,7 @@
 {:else}
 	<section>
 		<h2>Veranstaltungen</h2>
+		<p><a href={resolve('/persons')}>Personen-Pool</a></p>
 
 		<form onsubmit={addEvent}>
 			<label>

@@ -3,11 +3,13 @@
 	import { page } from '$app/state';
 	import {
 		addParticipant,
+		collectParticipantScopedDeletions,
 		isParticipant,
-		listParticipants
+		listParticipants,
+		type Participant
 	} from '$lib/domain/participant';
 	import { createPerson, listPersonsByName } from '$lib/domain/person';
-	import { libraryState, upsertRecord } from '$lib/library.svelte';
+	import { libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
 
 	let newPersonName = $state('');
 	let selectedPersonId = $state('');
@@ -49,6 +51,19 @@
 		await upsertRecord('participants', participant);
 		selectedPersonId = '';
 	}
+
+	async function removeParticipant(participant: Participant) {
+		const personName = libraryState.library.persons[participant.person].name;
+		const confirmed = window.confirm(
+			`Teilnehmer „${personName}“ aus „${event.name}“ entfernen?\n` +
+				'Die veranstaltungsbezogenen Daten dieses Teilnehmers gehen verloren; ' +
+				'die Person bleibt im Personen-Pool erhalten.'
+		);
+		if (!confirmed) {
+			return;
+		}
+		await removeRecords(collectParticipantScopedDeletions(participant.id));
+	}
 </script>
 
 {#if libraryState.status === 'loading'}
@@ -69,7 +84,12 @@
 		{:else}
 			<ul>
 				{#each participants as participant (participant.id)}
-					<li>{libraryState.library.persons[participant.person].name}</li>
+					<li>
+						{libraryState.library.persons[participant.person].name}
+						<button type="button" onclick={() => removeParticipant(participant)}>
+							Entfernen
+						</button>
+					</li>
 				{/each}
 			</ul>
 		{/if}
