@@ -15,6 +15,14 @@ export default defineConfig({
 		}),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
+			workbox: {
+				// Every route is prerendered and precached. The default navigation fallback
+				// would answer every hard navigation with the precached '/', hydrating the
+				// wrong page on e.g. /event. Serve navigations from the precache by pathname
+				// instead, ignoring query parameters such as ?id=.
+				navigateFallback: null,
+				ignoreURLParametersMatching: [/./]
+			},
 			manifest: {
 				name: 'AMTS',
 				short_name: 'AMTS',
