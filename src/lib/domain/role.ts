@@ -54,6 +54,22 @@ export function listRoles(roles: Record<string, Role>, eventId: string): Role[] 
 		.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/**
+ * Copy another Event's Role set into the target Event (CONTEXT.md: a Role set "can be
+ * copied from a previous event"). Copies are independent Event-scoped definitions with
+ * new ids — later edits in either Event do not affect the other. Source Roles whose
+ * name is already defined in the target Event are skipped, not duplicated.
+ */
+export function copyRoles(
+	roles: Record<string, Role>,
+	sourceEventId: string,
+	targetEventId: string
+): Role[] {
+	return listRoles(roles, sourceEventId)
+		.filter((role) => !isRoleNameDefined(roles, targetEventId, role.name))
+		.map((role) => ({ id: newRecordId(), event: targetEventId, name: role.name }));
+}
+
 /** Assign a Role to a Participant. Only Roles of the Participant's own Event apply. */
 export function assignRole(participant: Participant, role: Role): Participant {
 	if (role.event !== participant.event) {

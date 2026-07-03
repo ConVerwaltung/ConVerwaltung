@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validate as uuidValidate, version as uuidVersion } from 'uuid';
 import {
 	assignRole,
+	copyRoles,
 	defineRole,
 	isRoleNameDefined,
 	listRoles,
@@ -135,6 +136,58 @@ describe('listRoles', () => {
 		};
 
 		expect(listRoles(poolWith(newer, elsewhere, older), 'summer-fest')).toEqual([older, newer]);
+	});
+});
+
+describe('copyRoles', () => {
+	it('copies nothing from an Event without Roles', () => {
+		const elsewhere = defineRole({}, 'autumn-fest', 'Gast');
+
+		expect(copyRoles(poolWith(elsewhere), 'summer-fest', 'autumn-fest')).toEqual([]);
+	});
+
+	it('copies the source Roles as independent definitions with new ids, in creation order', () => {
+		const guest = defineRole({}, 'summer-fest', 'Gast');
+		const speaker = defineRole(poolWith(guest), 'summer-fest', 'Sprecher');
+
+		const copies = copyRoles(poolWith(guest, speaker), 'summer-fest', 'autumn-fest');
+
+		expect(copies.map((role) => role.name)).toEqual(['Gast', 'Sprecher']);
+		for (const copy of copies) {
+			expect(copy.event).toBe('autumn-fest');
+			expect(uuidValidate(copy.id)).toBe(true);
+			expect(uuidVersion(copy.id)).toBe(7);
+		}
+		expect(copies.map((role) => role.id)).not.toContain(guest.id);
+		expect(copies.map((role) => role.id)).not.toContain(speaker.id);
+	});
+
+	it('copies nothing when every source name already exists in the target Event', () => {
+		const guest = defineRole({}, 'summer-fest', 'Gast');
+		const existing = defineRole(poolWith(guest), 'autumn-fest', 'Gast');
+
+		expect(copyRoles(poolWith(guest, existing), 'summer-fest', 'autumn-fest')).toEqual([]);
+	});
+
+	it('skips colliding names and copies the rest', () => {
+		const guest = defineRole({}, 'summer-fest', 'Gast');
+		const speaker = defineRole(poolWith(guest), 'summer-fest', 'Sprecher');
+		const existing = defineRole(poolWith(guest, speaker), 'autumn-fest', 'Gast');
+
+		const copies = copyRoles(poolWith(guest, speaker, existing), 'summer-fest', 'autumn-fest');
+
+		expect(copies.map((role) => role.name)).toEqual(['Sprecher']);
+		expect(copies[0].event).toBe('autumn-fest');
+	});
+
+	it('does not touch the source Roles', () => {
+		const guest = defineRole({}, 'summer-fest', 'Gast');
+		const roles = poolWith(guest);
+
+		copyRoles(roles, 'summer-fest', 'autumn-fest');
+
+		expect(roles).toEqual(poolWith(guest));
+		expect(guest.event).toBe('summer-fest');
 	});
 });
 

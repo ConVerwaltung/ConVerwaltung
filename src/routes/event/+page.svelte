@@ -9,8 +9,10 @@
 		type Participant
 	} from '$lib/domain/participant';
 	import { createPerson, listPersonsByName } from '$lib/domain/person';
+	import { listEventsByCreation } from '$lib/domain/event';
 	import {
 		assignRole,
+		copyRoles,
 		defineRole,
 		isRoleNameDefined,
 		listRoles,
@@ -26,6 +28,7 @@
 	let newRoleName = $state('');
 	let renamingRoleId: string | null = $state(null);
 	let roleRenameDraft = $state('');
+	let copySourceEventId = $state('');
 
 	const event = $derived(libraryState.library.events[page.url.searchParams.get('id') ?? '']);
 	const participants = $derived(
@@ -41,6 +44,15 @@
 			renamingRole !== undefined &&
 			roleRenameDraft.trim() !== renamingRole.name &&
 			isRoleNameDefined(libraryState.library.roles, event.id, roleRenameDraft)
+	);
+	const copySourceEvents = $derived(
+		event === undefined
+			? []
+			: listEventsByCreation(libraryState.library.events).filter(
+					(candidate) =>
+						candidate.id !== event.id &&
+						listRoles(libraryState.library.roles, candidate.id).length > 0
+				)
 	);
 	const addablePersons = $derived(
 		event === undefined
@@ -83,6 +95,17 @@
 		}
 		await upsertRecord('roles', defineRole(libraryState.library.roles, event.id, newRoleName));
 		newRoleName = '';
+	}
+
+	async function copyRolesFromEvent(submitEvent: SubmitEvent) {
+		submitEvent.preventDefault();
+		if (copySourceEventId === '') {
+			return;
+		}
+		for (const role of copyRoles(libraryState.library.roles, copySourceEventId, event.id)) {
+			await upsertRecord('roles', role);
+		}
+		copySourceEventId = '';
 	}
 
 	function startRoleRename(role: Role) {
@@ -195,6 +218,22 @@
 				<span>Rollenname bereits vergeben.</span>
 			{/if}
 		</form>
+
+		{#if copySourceEvents.length > 0}
+			<form onsubmit={copyRolesFromEvent}>
+				<label>
+					Rollen kopieren aus
+					<select bind:value={copySourceEventId}>
+						<option value="" disabled>Veranstaltung wählen …</option>
+						{#each copySourceEvents as sourceEvent (sourceEvent.id)}
+							<option value={sourceEvent.id}>{sourceEvent.name}</option>
+						{/each}
+					</select>
+				</label>
+				<button type="submit" disabled={copySourceEventId === ''}>Rollen kopieren</button>
+				<p>Rollen, deren Name hier bereits vergeben ist, werden übersprungen.</p>
+			</form>
+		{/if}
 
 		<h3>Teilnehmer</h3>
 		{#if participants.length === 0}
