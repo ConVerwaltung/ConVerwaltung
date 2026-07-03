@@ -1,9 +1,10 @@
-// Person: a human identity persisting across Events. The only built-in field is the
-// name; everything else is left to Custom Fields. Framework-free — no `svelte` imports.
+// Person: a human identity persisting across Events. The only built-in fields are the
+// name and the Note (which follows the Person across Events); everything else is left
+// to Custom Fields. Framework-free — no `svelte` imports.
 import { newRecordId } from './ids';
-import type { LibraryRecord } from './library';
+import type { NotedRecord } from './note';
 
-export interface Person extends LibraryRecord {
+export interface Person extends NotedRecord {
 	readonly name: string;
 }
 

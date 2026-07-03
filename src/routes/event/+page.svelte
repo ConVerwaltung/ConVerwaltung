@@ -10,6 +10,7 @@
 	} from '$lib/domain/participant';
 	import { createPerson, listPersonsByName } from '$lib/domain/person';
 	import { listEventsByCreation } from '$lib/domain/event';
+	import { editNote, noteOf } from '$lib/domain/note';
 	import {
 		assignRole,
 		copyRoles,
@@ -29,6 +30,8 @@
 	let renamingRoleId: string | null = $state(null);
 	let roleRenameDraft = $state('');
 	let copySourceEventId = $state('');
+	let noteEditParticipantId: string | null = $state(null);
+	let noteDraft = $state('');
 
 	const event = $derived(libraryState.library.events[page.url.searchParams.get('id') ?? '']);
 	const participants = $derived(
@@ -151,6 +154,17 @@
 		await upsertRecord('participants', updated);
 	}
 
+	function startNoteEdit(participant: Participant) {
+		noteEditParticipantId = participant.id;
+		noteDraft = noteOf(participant);
+	}
+
+	async function submitNote(submitEvent: SubmitEvent, participant: Participant) {
+		submitEvent.preventDefault();
+		await upsertRecord('participants', editNote(participant, noteDraft));
+		noteEditParticipantId = null;
+	}
+
 	async function removeParticipant(participant: Participant) {
 		const personName = libraryState.library.persons[participant.person].name;
 		const confirmed = window.confirm(
@@ -256,6 +270,23 @@
 						<button type="button" onclick={() => removeParticipant(participant)}>
 							Entfernen
 						</button>
+						{#if noteEditParticipantId === participant.id}
+							<form onsubmit={(submitEvent) => submitNote(submitEvent, participant)}>
+								<!-- svelte-ignore a11y_autofocus -->
+								<textarea bind:value={noteDraft} rows="4" autofocus></textarea>
+								<button type="submit">Speichern</button>
+								<button type="button" onclick={() => (noteEditParticipantId = null)}>
+									Abbrechen
+								</button>
+							</form>
+						{:else}
+							<button type="button" onclick={() => startNoteEdit(participant)}>
+								Notiz bearbeiten
+							</button>
+							{#if noteOf(participant) !== ''}
+								<p class="note">{noteOf(participant)}</p>
+							{/if}
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -289,3 +320,10 @@
 		{/if}
 	</section>
 {/if}
+
+<style>
+	.note {
+		white-space: pre-line;
+		margin: 0;
+	}
+</style>

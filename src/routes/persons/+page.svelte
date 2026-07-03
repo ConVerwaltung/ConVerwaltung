@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { listEventsByCreation } from '$lib/domain/event';
+	import { editNote, noteOf } from '$lib/domain/note';
 	import { addParticipant, isParticipant } from '$lib/domain/participant';
-	import { listPersonsByName } from '$lib/domain/person';
+	import { listPersonsByName, type Person } from '$lib/domain/person';
 	import { libraryState, upsertRecord } from '$lib/library.svelte';
 
 	let selectedPersonId = $state('');
 	let selectedEventId = $state('');
+	let noteEditPersonId: string | null = $state(null);
+	let noteDraft = $state('');
 
 	const persons = $derived(listPersonsByName(libraryState.library.persons));
 	const addableEvents = $derived(
@@ -30,6 +33,17 @@
 		await upsertRecord('participants', participant);
 		selectedEventId = '';
 	}
+
+	function startNoteEdit(person: Person) {
+		noteEditPersonId = person.id;
+		noteDraft = noteOf(person);
+	}
+
+	async function submitNote(submitEvent: SubmitEvent, person: Person) {
+		submitEvent.preventDefault();
+		await upsertRecord('persons', editNote(person, noteDraft));
+		noteEditPersonId = null;
+	}
 </script>
 
 {#if libraryState.status === 'loading'}
@@ -46,7 +60,22 @@
 		{:else}
 			<ul>
 				{#each persons as person (person.id)}
-					<li>{person.name}</li>
+					<li>
+						{person.name}
+						{#if noteEditPersonId === person.id}
+							<form onsubmit={(submitEvent) => submitNote(submitEvent, person)}>
+								<!-- svelte-ignore a11y_autofocus -->
+								<textarea bind:value={noteDraft} rows="4" autofocus></textarea>
+								<button type="submit">Speichern</button>
+								<button type="button" onclick={() => (noteEditPersonId = null)}>Abbrechen</button>
+							</form>
+						{:else}
+							<button type="button" onclick={() => startNoteEdit(person)}>Notiz bearbeiten</button>
+							{#if noteOf(person) !== ''}
+								<p class="note">{noteOf(person)}</p>
+							{/if}
+						{/if}
+					</li>
 				{/each}
 			</ul>
 
@@ -76,3 +105,10 @@
 		{/if}
 	</section>
 {/if}
+
+<style>
+	.note {
+		white-space: pre-line;
+		margin: 0;
+	}
+</style>

@@ -52,6 +52,21 @@ describe('library store', () => {
 		reopened.close();
 	});
 
+	it('preserves line breaks in a Note through save and reload', async () => {
+		const dbName = uniqueDbName();
+		const person = { id: newRecordId(), name: 'Ada Lovelace', note: 'Zeile 1\nZeile 2' };
+
+		const db = await openLibraryDb(dbName);
+		await putRecord(db, 'persons', person);
+		db.close();
+
+		const reopened = await openLibraryDb(dbName);
+		const library = await loadLibrary(reopened);
+
+		expect(library.persons[person.id].note).toBe('Zeile 1\nZeile 2');
+		reopened.close();
+	});
+
 	it('persists the latest write for a record id', async () => {
 		const dbName = uniqueDbName();
 		const id = newRecordId();
