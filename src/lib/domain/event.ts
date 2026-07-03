@@ -28,7 +28,7 @@ export function renameEvent(event: Event, name: string): Event {
 
 /**
  * The records a scoped delete of an Event removes: the Event itself and everything
- * scoped to it — its Participants (later slices add Roles and Participant-level
+ * scoped to it — its Participants and Roles (later slices add Participant-level
  * Custom Field definitions to that scope). Persons are never included: those left
  * with zero Participants become orphans and are retained; only Erasure removes a
  * Person (ADR-0005).
@@ -38,6 +38,11 @@ export function collectEventScopedDeletions(library: Library, eventId: string): 
 	for (const participant of Object.values(library.participants)) {
 		if (participant.event === eventId) {
 			deletions.push({ section: 'participants', id: participant.id });
+		}
+	}
+	for (const role of Object.values(library.roles)) {
+		if (role.event === eventId) {
+			deletions.push({ section: 'roles', id: role.id });
 		}
 	}
 	return deletions;

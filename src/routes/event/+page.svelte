@@ -9,14 +9,38 @@
 		type Participant
 	} from '$lib/domain/participant';
 	import { createPerson, listPersonsByName } from '$lib/domain/person';
+	import {
+		assignRole,
+		defineRole,
+		isRoleNameDefined,
+		listRoles,
+		removeRoleDefinition,
+		renameRole,
+		unassignRole,
+		type Role
+	} from '$lib/domain/role';
 	import { libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
 
 	let newPersonName = $state('');
 	let selectedPersonId = $state('');
+	let newRoleName = $state('');
+	let renamingRoleId: string | null = $state(null);
+	let roleRenameDraft = $state('');
 
 	const event = $derived(libraryState.library.events[page.url.searchParams.get('id') ?? '']);
 	const participants = $derived(
 		event === undefined ? [] : listParticipants(libraryState.library.participants, event.id)
+	);
+	const roles = $derived(event === undefined ? [] : listRoles(libraryState.library.roles, event.id));
+	const newRoleNameTaken = $derived(
+		event !== undefined && isRoleNameDefined(libraryState.library.roles, event.id, newRoleName)
+	);
+	const renamingRole = $derived(roles.find((role) => role.id === renamingRoleId));
+	const roleRenameTaken = $derived(
+		event !== undefined &&
+			renamingRole !== undefined &&
+			roleRenameDraft.trim() !== renamingRole.name &&
+			isRoleNameDefined(libraryState.library.roles, event.id, roleRenameDraft)
 	);
 	const addablePersons = $derived(
 		event === undefined
@@ -52,6 +76,58 @@
 		selectedPersonId = '';
 	}
 
+	async function addRole(submitEvent: SubmitEvent) {
+		submitEvent.preventDefault();
+		if (newRoleName.trim() === '' || newRoleNameTaken) {
+			return;
+		}
+		await upsertRecord('roles', defineRole(libraryState.library.roles, event.id, newRoleName));
+		newRoleName = '';
+	}
+
+	function startRoleRename(role: Role) {
+		renamingRoleId = role.id;
+		roleRenameDraft = role.name;
+	}
+
+	async function submitRoleRename(submitEvent: SubmitEvent, role: Role) {
+		submitEvent.preventDefault();
+		if (roleRenameDraft.trim() === '' || roleRenameTaken) {
+			return;
+		}
+		await upsertRecord('roles', renameRole(libraryState.library.roles, role, roleRenameDraft));
+		renamingRoleId = null;
+	}
+
+	async function removeRole(role: Role) {
+		const { deletions, unassignedParticipants } = removeRoleDefinition(
+			libraryState.library.participants,
+			role.id
+		);
+		const holderCount = unassignedParticipants.length;
+		const cascadeNote =
+			holderCount === 0
+				? 'Kein Teilnehmer trägt diese Rolle.'
+				: holderCount === 1
+					? 'Sie wird dabei einem Teilnehmer entzogen.'
+					: `Sie wird dabei ${holderCount} Teilnehmern entzogen.`;
+		const confirmed = window.confirm(`Rolle „${role.name}“ entfernen?\n${cascadeNote}`);
+		if (!confirmed) {
+			return;
+		}
+		for (const participant of unassignedParticipants) {
+			await upsertRecord('participants', participant);
+		}
+		await removeRecords(deletions);
+	}
+
+	async function toggleRole(participant: Participant, role: Role) {
+		const updated = participant.roles.includes(role.id)
+			? unassignRole(participant, role.id)
+			: assignRole(participant, role);
+		await upsertRecord('participants', updated);
+	}
+
 	async function removeParticipant(participant: Participant) {
 		const personName = libraryState.library.persons[participant.person].name;
 		const confirmed = window.confirm(
@@ -78,6 +154,48 @@
 		<h2>{event.name}</h2>
 		<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
 
+		<h3>Rollen</h3>
+		{#if roles.length === 0}
+			<p>Noch keine Rollen definiert.</p>
+		{:else}
+			<ul>
+				{#each roles as role (role.id)}
+					<li>
+						{#if renamingRoleId === role.id}
+							<form onsubmit={(submitEvent) => submitRoleRename(submitEvent, role)}>
+								<!-- svelte-ignore a11y_autofocus -->
+								<input type="text" bind:value={roleRenameDraft} required autofocus />
+								<button type="submit" disabled={roleRenameDraft.trim() === '' || roleRenameTaken}>
+									Speichern
+								</button>
+								<button type="button" onclick={() => (renamingRoleId = null)}>Abbrechen</button>
+								{#if roleRenameTaken}
+									<span>Rollenname bereits vergeben.</span>
+								{/if}
+							</form>
+						{:else}
+							{role.name}
+							<button type="button" onclick={() => startRoleRename(role)}>Umbenennen</button>
+							<button type="button" onclick={() => removeRole(role)}>Entfernen</button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<form onsubmit={addRole}>
+			<label>
+				Neue Rolle
+				<input type="text" bind:value={newRoleName} required />
+			</label>
+			<button type="submit" disabled={newRoleName.trim() === '' || newRoleNameTaken}>
+				Rolle definieren
+			</button>
+			{#if newRoleNameTaken}
+				<span>Rollenname bereits vergeben.</span>
+			{/if}
+		</form>
+
 		<h3>Teilnehmer</h3>
 		{#if participants.length === 0}
 			<p>Noch keine Teilnehmer.</p>
@@ -86,6 +204,16 @@
 				{#each participants as participant (participant.id)}
 					<li>
 						{libraryState.library.persons[participant.person].name}
+						{#each roles as role (role.id)}
+							<label>
+								<input
+									type="checkbox"
+									checked={participant.roles.includes(role.id)}
+									onchange={() => toggleRole(participant, role)}
+								/>
+								{role.name}
+							</label>
+						{/each}
 						<button type="button" onclick={() => removeParticipant(participant)}>
 							Entfernen
 						</button>

@@ -25,11 +25,18 @@ describe('library store', () => {
 		const dbName = uniqueDbName();
 		const event = createEvent('Sommerfest 2026');
 		const person = { id: newRecordId(), name: 'Ada Lovelace' };
-		const participant = { id: newRecordId(), event: event.id, person: person.id, roles: [] };
+		const role = { id: newRecordId(), event: event.id, name: 'Sprecherin' };
+		const participant = {
+			id: newRecordId(),
+			event: event.id,
+			person: person.id,
+			roles: [role.id]
+		};
 
 		const db = await openLibraryDb(dbName);
 		await putRecord(db, 'events', event);
 		await putRecord(db, 'persons', person);
+		await putRecord(db, 'roles', role);
 		await putRecord(db, 'participants', participant);
 		db.close();
 
@@ -39,6 +46,7 @@ describe('library store', () => {
 		const expected = createEmptyLibrary();
 		expected.events[event.id] = event;
 		expected.persons[person.id] = person;
+		expected.roles[role.id] = role;
 		expected.participants[participant.id] = participant;
 		expect(library).toEqual(expected);
 		reopened.close();

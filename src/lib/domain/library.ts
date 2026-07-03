@@ -5,6 +5,7 @@
 import type { Event } from './event';
 import type { Person } from './person';
 import type { Participant } from './participant';
+import type { Role } from './role';
 
 /** Every record in the Library is keyed by a UUID v7 (ADR-0006). */
 export interface LibraryRecord {
@@ -13,7 +14,7 @@ export interface LibraryRecord {
 
 /**
  * A record living in one Event's scope: a scoped delete of that Event removes it.
- * Participants today; later slices add Roles and Participant-level Custom Field
+ * Participants and Roles today; later slices add Participant-level Custom Field
  * definitions. Persons are never event-scoped (ADR-0005).
  */
 export interface EventScopedRecord extends LibraryRecord {
@@ -28,14 +29,15 @@ export interface RecordKey {
 
 /**
  * The sections of the Library, mirroring its definition in CONTEXT.md: all Events,
- * the shared Person pool, their Participants, and the organizer's Import Mappings
- * and Export Views. Records are indexed by id; plain objects (not `Map`) so a
- * `$state` proxy can observe them deeply.
+ * the shared Person pool, their Participants and Roles, and the organizer's Import
+ * Mappings and Export Views. Records are indexed by id; plain objects (not `Map`)
+ * so a `$state` proxy can observe them deeply.
  */
 export interface Library {
 	events: Record<string, Event>;
 	persons: Record<string, Person>;
 	participants: Record<string, Participant>;
+	roles: Record<string, Role>;
 	importMappings: Record<string, LibraryRecord>;
 	exportViews: Record<string, LibraryRecord>;
 }
@@ -49,6 +51,7 @@ export const librarySections: readonly LibrarySection[] = [
 	'events',
 	'persons',
 	'participants',
+	'roles',
 	'importMappings',
 	'exportViews'
 ];
@@ -58,6 +61,7 @@ export function createEmptyLibrary(): Library {
 		events: {},
 		persons: {},
 		participants: {},
+		roles: {},
 		importMappings: {},
 		exportViews: {}
 	};

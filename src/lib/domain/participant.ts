@@ -6,6 +6,7 @@ import type { EventScopedRecord, RecordKey } from './library';
 
 export interface Participant extends EventScopedRecord {
 	readonly person: string;
+	/** Ids of Roles defined in the same Event; assignment lives in `role.ts`. */
 	readonly roles: readonly string[];
 }
 

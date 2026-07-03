@@ -81,7 +81,8 @@ describe('renameEvent', () => {
 
 describe('collectEventScopedDeletions', () => {
 	// A Library with two Events, three Persons and three Participants: Ada takes part in
-	// both Events, Grace only in the summer one, and Kurt is an orphan Person.
+	// both Events, Grace only in the summer one, and Kurt is an orphan Person. Each Event
+	// defines one Role.
 	function libraryWithTwoEvents(): {
 		library: Library;
 		summerFest: Event;
@@ -98,6 +99,8 @@ describe('collectEventScopedDeletions', () => {
 		library.participants['pa1'] = { id: 'pa1', event: summerFest.id, person: 'ada', roles: [] };
 		library.participants['pa2'] = { id: 'pa2', event: autumnFest.id, person: 'ada', roles: [] };
 		library.participants['pa3'] = { id: 'pa3', event: summerFest.id, person: 'grace', roles: [] };
+		library.roles['ro1'] = { id: 'ro1', event: summerFest.id, name: 'Gast' };
+		library.roles['ro2'] = { id: 'ro2', event: autumnFest.id, name: 'Gast' };
 		return { library, summerFest, autumnFest };
 	}
 
@@ -107,13 +110,14 @@ describe('collectEventScopedDeletions', () => {
 		}
 	}
 
-	it('removes the Event and exactly its own Participants', () => {
+	it('removes the Event and exactly its own Participants and Roles', () => {
 		const { library, summerFest, autumnFest } = libraryWithTwoEvents();
 
 		applyDeletions(library, collectEventScopedDeletions(library, summerFest.id));
 
 		expect(Object.keys(library.events)).toEqual([autumnFest.id]);
 		expect(Object.keys(library.participants)).toEqual(['pa2']);
+		expect(Object.keys(library.roles)).toEqual(['ro2']);
 	});
 
 	it('leaves every Person untouched, including resulting orphans (ADR-0005)', () => {
