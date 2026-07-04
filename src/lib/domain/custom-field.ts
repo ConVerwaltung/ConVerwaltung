@@ -10,7 +10,9 @@ import type { LibraryRecord, RecordKey } from './library';
 /** Person-level fields are global; Participant-level fields are per Event. */
 export type CustomFieldLevel = 'person' | 'participant';
 
-export type CustomFieldType = 'text';
+export const customFieldTypes = ['text', 'number', 'boolean', 'date', 'select'] as const;
+
+export type CustomFieldType = (typeof customFieldTypes)[number];
 
 export interface CustomFieldDefinition extends LibraryRecord {
 	readonly level: CustomFieldLevel;
@@ -18,6 +20,7 @@ export interface CustomFieldDefinition extends LibraryRecord {
 	readonly name: string;
 	/** The Event a Participant-level definition belongs to; absent on Person-level (global). */
 	readonly event?: string;
+	readonly selectOptions?: readonly string[];
 }
 
 /** A record carrying Custom Field values, indexed by definition id. Absent means empty. */
@@ -71,34 +74,63 @@ function normalizeFieldName(
 	return trimmedName;
 }
 
-/** Define a global Person-level text Custom Field. Blank and duplicate names are rejected. */
-export function definePersonTextField(
+function dedupeTrimmed(options: readonly string[]): string[] {
+	const trimmed = options.map((option) => option.trim()).filter((option) => option !== '');
+	return [...new Set(trimmed)];
+}
+
+export function parseSelectOptions(text: string): string[] {
+	return dedupeTrimmed(text.split('\n'));
+}
+
+function normalizeSelectOptions(options: readonly string[]): readonly string[] {
+	const normalized = dedupeTrimmed(options);
+	if (normalized.length === 0) {
+		throw new Error('A single-select Custom Field needs at least one option');
+	}
+	return normalized;
+}
+
+function typeProperties(
+	type: CustomFieldType,
+	options: readonly string[]
+): Pick<CustomFieldDefinition, 'type' | 'selectOptions'> {
+	if (type === 'select') {
+		return { type, selectOptions: normalizeSelectOptions(options) };
+	}
+	if (options.length > 0) {
+		throw new Error('Only single-select Custom Fields have options');
+	}
+	return { type };
+}
+
+export function definePersonField(
 	definitions: Record<string, CustomFieldDefinition>,
-	name: string
+	name: string,
+	type: CustomFieldType,
+	options: readonly string[] = []
 ): CustomFieldDefinition {
 	return {
 		id: newRecordId(),
 		level: 'person',
-		type: 'text',
-		name: normalizeFieldName(definitions, 'person', undefined, name)
+		name: normalizeFieldName(definitions, 'person', undefined, name),
+		...typeProperties(type, options)
 	};
 }
 
-/**
- * Define a Participant-level text Custom Field within an Event. Blank names and names
- * already used by this Event's Participant-level fields are rejected.
- */
-export function defineParticipantTextField(
+export function defineParticipantField(
 	definitions: Record<string, CustomFieldDefinition>,
 	eventId: string,
-	name: string
+	name: string,
+	type: CustomFieldType,
+	options: readonly string[] = []
 ): CustomFieldDefinition {
 	return {
 		id: newRecordId(),
 		level: 'participant',
-		type: 'text',
 		event: eventId,
-		name: normalizeFieldName(definitions, 'participant', eventId, name)
+		name: normalizeFieldName(definitions, 'participant', eventId, name),
+		...typeProperties(type, options)
 	};
 }
 
@@ -115,6 +147,42 @@ export function renameCustomField(
 		...definition,
 		name: normalizeFieldName(otherDefinitions, definition.level, definition.event, name)
 	};
+}
+
+export function changeCustomFieldType<T extends CustomValuedRecord>(
+	records: Record<string, T>,
+	definition: CustomFieldDefinition,
+	type: CustomFieldType,
+	options: readonly string[] = []
+): CustomFieldDefinition {
+	if (countCustomValues(records, definition.id) > 0) {
+		throw new Error('Cannot change the type of a Custom Field with recorded values');
+	}
+	return {
+		id: definition.id,
+		level: definition.level,
+		name: definition.name,
+		...(definition.event === undefined ? {} : { event: definition.event }),
+		...typeProperties(type, options)
+	};
+}
+
+export function editSelectOptions<T extends CustomValuedRecord>(
+	records: Record<string, T>,
+	definition: CustomFieldDefinition,
+	options: readonly string[]
+): CustomFieldDefinition {
+	if (definition.type !== 'select') {
+		throw new Error('Only single-select Custom Fields have options');
+	}
+	const normalized = normalizeSelectOptions(options);
+	const stillUsed = listUsedCustomValues(records, definition.id).filter(
+		(value) => !normalized.includes(value)
+	);
+	if (stillUsed.length > 0) {
+		throw new Error(`Options still recorded as values cannot be removed: ${stillUsed.join(', ')}`);
+	}
+	return { ...definition, selectOptions: normalized };
 }
 
 /** The Person-level Custom Fields in creation order — UUID v7 keys sort chronologically. */
@@ -136,13 +204,39 @@ export function listParticipantFields(
 		.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function isIsoCalendarDate(value: string): boolean {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+		return false;
+	}
+	const [year, month, day] = value.split('-').map(Number);
+	const date = new Date(Date.UTC(year, month - 1, day));
+	return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+export function isValidCustomValue(definition: CustomFieldDefinition, value: string): boolean {
+	if (value === '') {
+		return true;
+	}
+	switch (definition.type) {
+		case 'text':
+			return true;
+		case 'number':
+			return value.trim() !== '' && Number.isFinite(Number(value));
+		case 'boolean':
+			return value === 'true' || value === 'false';
+		case 'date':
+			return isIsoCalendarDate(value);
+		case 'select':
+			return definition.selectOptions !== undefined && definition.selectOptions.includes(value);
+	}
+}
+
 /** The record's value for a Custom Field; absent means empty. */
 export function customValueOf(record: CustomValuedRecord, definitionId: string): string {
 	return record.customValues?.[definitionId] ?? '';
 }
 
-/** Record a value against a Custom Field definition. Empty text clears the value. */
-export function editCustomValue<T extends CustomValuedRecord>(
+function setCustomValue<T extends CustomValuedRecord>(
 	record: T,
 	definitionId: string,
 	value: string
@@ -154,6 +248,36 @@ export function editCustomValue<T extends CustomValuedRecord>(
 		customValues[definitionId] = value;
 	}
 	return { ...record, customValues };
+}
+
+export function editCustomValue<T extends CustomValuedRecord>(
+	record: T,
+	definition: CustomFieldDefinition,
+	value: string
+): T {
+	if (!isValidCustomValue(definition, value)) {
+		throw new Error(`Value does not fit the ${definition.type} Custom Field “${definition.name}”`);
+	}
+	return setCustomValue(record, definition.id, value);
+}
+
+export function countCustomValues<T extends CustomValuedRecord>(
+	records: Record<string, T>,
+	definitionId: string
+): number {
+	return Object.values(records).filter(
+		(record) => record.customValues?.[definitionId] !== undefined
+	).length;
+}
+
+export function listUsedCustomValues<T extends CustomValuedRecord>(
+	records: Record<string, T>,
+	definitionId: string
+): string[] {
+	const values = Object.values(records)
+		.map((record) => record.customValues?.[definitionId])
+		.filter((value): value is string => value !== undefined);
+	return [...new Set(values)].sort();
 }
 
 /**
@@ -168,6 +292,6 @@ export function removeCustomFieldDefinition<T extends CustomValuedRecord>(
 ): { deletions: RecordKey[]; clearedRecords: T[] } {
 	const clearedRecords = Object.values(records)
 		.filter((record) => record.customValues?.[definitionId] !== undefined)
-		.map((record) => editCustomValue(record, definitionId, ''));
+		.map((record) => setCustomValue(record, definitionId, ''));
 	return { deletions: [{ section: 'customFields', id: definitionId }], clearedRecords };
 }
