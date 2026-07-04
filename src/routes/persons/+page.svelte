@@ -11,13 +11,15 @@
 	import { listEventsByCreation } from '$lib/domain/event';
 	import { editNote, noteOf } from '$lib/domain/note';
 	import { addParticipant, isParticipant } from '$lib/domain/participant';
-	import { listPersonsByName, type Person } from '$lib/domain/person';
-	import { libraryState, upsertRecord } from '$lib/library.svelte';
+	import { collectErasureDeletions, listPersonsByName, type Person } from '$lib/domain/person';
+	import { libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
 
 	let selectedPersonId = $state('');
 	let selectedEventId = $state('');
 	let noteEditPersonId: string | null = $state(null);
 	let noteDraft = $state('');
+	let erasureCandidateId: string | null = $state(null);
+	let erasureNameDraft = $state('');
 
 	const persons = $derived(listPersonsByName(libraryState.library.persons));
 	const personFields = $derived(listPersonFields(libraryState.library.customFields));
@@ -56,6 +58,39 @@
 		submitEvent.preventDefault();
 		await upsertRecord('persons', editNote(person, noteDraft));
 		noteEditPersonId = null;
+	}
+
+	function startErasure(person: Person) {
+		erasureCandidateId = person.id;
+		erasureNameDraft = '';
+	}
+
+	const erasureEventCount = $derived(
+		erasureCandidateId === null
+			? 0
+			: Object.values(libraryState.library.participants).filter(
+					(participant) => participant.person === erasureCandidateId
+				).length
+	);
+	const erasureScopeText = $derived(
+		erasureEventCount === 0
+			? 'derzeit ohne Veranstaltung'
+			: erasureEventCount === 1
+				? 'in einer Veranstaltung'
+				: `in ${erasureEventCount} Veranstaltungen`
+	);
+
+	async function submitErasure(submitEvent: SubmitEvent, person: Person) {
+		submitEvent.preventDefault();
+		if (erasureNameDraft.trim() !== person.name) {
+			return;
+		}
+		await removeRecords(collectErasureDeletions(libraryState.library.participants, person.id));
+		erasureCandidateId = null;
+		if (selectedPersonId === person.id) {
+			selectedPersonId = '';
+			selectedEventId = '';
+		}
 	}
 </script>
 
@@ -98,6 +133,32 @@
 								<p class="note">{noteOf(person)}</p>
 							{/if}
 						{/if}
+						{#if erasureCandidateId === person.id}
+							<form
+								class="erasure"
+								onsubmit={(submitEvent) => submitErasure(submitEvent, person)}
+							>
+								<p>
+									<strong>Löschung:</strong> „{person.name}“ wird vollständig und unwiderruflich
+									entfernt — die Person selbst sowie alle ihre Teilnehmer-Daten, Notizen und Werte
+									benutzerdefinierter Felder ({erasureScopeText}). Anders als beim Entfernen eines
+									Teilnehmers bleibt nichts erhalten.
+								</p>
+								<label>
+									Zur Bestätigung den Namen eingeben
+									<!-- svelte-ignore a11y_autofocus -->
+									<input type="text" bind:value={erasureNameDraft} autofocus />
+								</label>
+								<button type="submit" disabled={erasureNameDraft.trim() !== person.name}>
+									Person unwiderruflich löschen
+								</button>
+								<button type="button" onclick={() => (erasureCandidateId = null)}>
+									Abbrechen
+								</button>
+							</form>
+						{:else}
+							<button type="button" onclick={() => startErasure(person)}>Löschung …</button>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -133,5 +194,10 @@
 	.note {
 		white-space: pre-line;
 		margin: 0;
+	}
+
+	.erasure {
+		border: 1px solid #b00020;
+		padding: 0.5em;
 	}
 </style>
