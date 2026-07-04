@@ -1,7 +1,3 @@
-// Person: a human identity persisting across Events. The only built-in fields are the
-// name and the Note (which follows the Person across Events); everything else is left
-// to Custom Fields, whose values are recorded on the Person. Framework-free — no
-// `svelte` imports.
 import type { CustomValuedRecord } from './custom-field';
 import { newRecordId } from './ids';
 import type { NotedRecord } from './note';
@@ -18,12 +14,10 @@ function normalizePersonName(name: string): string {
 	return trimmedName;
 }
 
-/** Create a Person from organizer input. Blank names are rejected. */
 export function createPerson(name: string): Person {
 	return { id: newRecordId(), name: normalizePersonName(name) };
 }
 
-/** The shared Person pool sorted by name, for picking an existing Person. */
 export function listPersonsByName(persons: Record<string, Person>): Person[] {
 	return Object.values(persons).sort((a, b) => a.name.localeCompare(b.name));
 }

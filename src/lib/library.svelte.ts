@@ -1,5 +1,3 @@
-// The thin reactive holder of the in-memory Library (ADR-0008): the only place where
-// runes and the persistence edge meet. Domain logic stays in $lib/domain.
 import {
 	createEmptyLibrary,
 	type LibrarySection,
@@ -23,7 +21,7 @@ export const libraryState = $state({
 
 let db: LibraryDb | undefined;
 
-/** Boot: load the full store into the in-memory Library. Call once, in the browser. */
+/** Call once, in the browser. */
 export async function bootLibrary(): Promise<void> {
 	try {
 		db = await openLibraryDb();
@@ -35,7 +33,6 @@ export async function bootLibrary(): Promise<void> {
 	}
 }
 
-/** Mutate the in-memory Library and write the changed record through to IndexedDB. */
 export async function upsertRecord<S extends LibrarySection>(
 	section: S,
 	record: SectionRecord<S>
@@ -50,7 +47,6 @@ export async function upsertRecord<S extends LibrarySection>(
 	await putRecord(db, section, $state.snapshot(record) as SectionRecord<S>);
 }
 
-/** Remove records from the in-memory Library and delete them from IndexedDB. */
 export async function removeRecords(keys: readonly RecordKey[]): Promise<void> {
 	if (db === undefined) {
 		throw new Error('Library not booted — call bootLibrary() first');

@@ -1,5 +1,3 @@
-// Thin persistence edge per ADR-0006: one IndexedDB object store per Library section,
-// touched only by the load/persist functions below. Framework-free — no `svelte` imports.
 import { openDB, type IDBPDatabase } from 'idb';
 import {
 	createEmptyLibrary,
@@ -17,9 +15,8 @@ type LibraryDbSchema = {
 export type LibraryDb = IDBPDatabase<LibraryDbSchema>;
 
 const DB_NAME = 'amts-library';
-// v3: `customFields` object store added (v2: `roles`). The upgrade callback creates
-// whichever section stores are missing, so each bump only needs the version number
-// raised here.
+// The upgrade callback creates whichever section stores are missing; a new
+// section only needs this version raised.
 const DB_VERSION = 3;
 
 export async function openLibraryDb(name: string = DB_NAME): Promise<LibraryDb> {
@@ -34,7 +31,6 @@ export async function openLibraryDb(name: string = DB_NAME): Promise<LibraryDb> 
 	});
 }
 
-/** One full read of the store into memory — the boot cost accepted in ADR-0006. */
 export async function loadLibrary(db: LibraryDb): Promise<Library> {
 	const library = createEmptyLibrary();
 	for (const section of librarySections) {
@@ -45,7 +41,7 @@ export async function loadLibrary(db: LibraryDb): Promise<Library> {
 	return library;
 }
 
-/** Write-through of one changed record. `record` must be a plain object, not a `$state` proxy. */
+/** `record` must be a plain object, not a `$state` proxy. */
 export async function putRecord<S extends LibrarySection>(
 	db: LibraryDb,
 	section: S,
@@ -54,7 +50,6 @@ export async function putRecord<S extends LibrarySection>(
 	await db.put(section, record);
 }
 
-/** Remove records in one readwrite transaction — a scoped delete lands atomically. */
 export async function deleteRecords(db: LibraryDb, keys: readonly RecordKey[]): Promise<void> {
 	if (keys.length === 0) {
 		return;

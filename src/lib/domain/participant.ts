@@ -1,19 +1,14 @@
-// Participant: a specific Person's involvement in a specific Event. Built-in structure
-// is `event`, `person`, `roles` plus the Note (belonging to that Event only); everything
-// else is left to Custom Fields, whose Participant-level values are recorded on the
-// Participant. Framework-free — no `svelte` imports.
 import type { CustomValuedRecord } from './custom-field';
 import { newRecordId } from './ids';
-import type { EventScopedRecord, RecordKey } from './library';
+import { compareByCreation, type EventScopedRecord, type RecordKey } from './library';
 import type { NotedRecord } from './note';
 
 export interface Participant extends EventScopedRecord, NotedRecord, CustomValuedRecord {
 	readonly person: string;
-	/** Ids of Roles defined in the same Event; assignment lives in `role.ts`. */
+	/** Ids of Roles defined in the same Event. */
 	readonly roles: readonly string[];
 }
 
-/** Whether the Person already takes part in the Event. */
 export function isParticipant(
 	participants: Record<string, Participant>,
 	eventId: string,
@@ -24,10 +19,6 @@ export function isParticipant(
 	);
 }
 
-/**
- * Add a Person to an Event as a Participant. A Person takes part in an Event at most
- * once; adding them again is rejected. Roles stay empty until the organizer assigns them.
- */
 export function addParticipant(
 	participants: Record<string, Participant>,
 	eventId: string,
@@ -39,22 +30,17 @@ export function addParticipant(
 	return { id: newRecordId(), event: eventId, person: personId, roles: [] };
 }
 
-/**
- * The records a scoped delete of a Participant removes: only the Participant itself,
- * taking its roles and event-scoped data with it. The Person is never included — a
- * Person left with zero Participants becomes an orphan and is retained as cross-event
- * memory; only Erasure removes a Person.
- */
+// The Person is never included: left without Participants they are retained
+// as orphans; only Erasure removes a Person.
 export function collectParticipantScopedDeletions(participantId: string): RecordKey[] {
 	return [{ section: 'participants', id: participantId }];
 }
 
-/** One Event's Participants in creation order — UUID v7 keys sort chronologically. */
 export function listParticipants(
 	participants: Record<string, Participant>,
 	eventId: string
 ): Participant[] {
 	return Object.values(participants)
 		.filter((participant) => participant.event === eventId)
-		.sort((a, b) => a.id.localeCompare(b.id));
+		.sort(compareByCreation);
 }

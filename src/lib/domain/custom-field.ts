@@ -1,13 +1,6 @@
-// Custom Field (CONTEXT.md): an organizer-defined, named and typed data slot. Values
-// are recorded against the definition per record. Person-level definitions are global —
-// they apply to every Person across all Events; Participant-level definitions belong to
-// one Event and apply only to its Participants. Names are unique within their scope:
-// across all Person-level fields, and per Event among its Participant-level fields.
-// Framework-free — no `svelte` imports.
 import { newRecordId } from './ids';
-import type { LibraryRecord, RecordKey } from './library';
+import { compareByCreation, type LibraryRecord, type RecordKey } from './library';
 
-/** Person-level fields are global; Participant-level fields are per Event. */
 export type CustomFieldLevel = 'person' | 'participant';
 
 export const customFieldTypes = ['text', 'number', 'boolean', 'date', 'select'] as const;
@@ -18,13 +11,13 @@ export interface CustomFieldDefinition extends LibraryRecord {
 	readonly level: CustomFieldLevel;
 	readonly type: CustomFieldType;
 	readonly name: string;
-	/** The Event a Participant-level definition belongs to; absent on Person-level (global). */
+	/** Absent on Person-level definitions — they are global. */
 	readonly event?: string;
 	readonly selectOptions?: readonly string[];
 }
 
-/** A record carrying Custom Field values, indexed by definition id. Absent means empty. */
 export interface CustomValuedRecord extends LibraryRecord {
+	/** Values by definition id; an absent entry means empty. */
 	readonly customValues?: Readonly<Record<string, string>>;
 }
 
@@ -41,7 +34,6 @@ function isFieldNameDefined(
 	);
 }
 
-/** Whether a Person-level Custom Field with this name (after trimming) is defined. */
 export function isPersonFieldNameDefined(
 	definitions: Record<string, CustomFieldDefinition>,
 	name: string
@@ -49,7 +41,6 @@ export function isPersonFieldNameDefined(
 	return isFieldNameDefined(definitions, 'person', undefined, name);
 }
 
-/** Whether the Event defines a Participant-level Custom Field with this name (after trimming). */
 export function isParticipantFieldNameDefined(
 	definitions: Record<string, CustomFieldDefinition>,
 	eventId: string,
@@ -134,7 +125,6 @@ export function defineParticipantField(
 	};
 }
 
-/** Rename a Custom Field. Blank names and duplicates within its scope are rejected. */
 export function renameCustomField(
 	definitions: Record<string, CustomFieldDefinition>,
 	definition: CustomFieldDefinition,
@@ -185,23 +175,21 @@ export function editSelectOptions<T extends CustomValuedRecord>(
 	return { ...definition, selectOptions: normalized };
 }
 
-/** The Person-level Custom Fields in creation order — UUID v7 keys sort chronologically. */
 export function listPersonFields(
 	definitions: Record<string, CustomFieldDefinition>
 ): CustomFieldDefinition[] {
 	return Object.values(definitions)
 		.filter((definition) => definition.level === 'person')
-		.sort((a, b) => a.id.localeCompare(b.id));
+		.sort(compareByCreation);
 }
 
-/** One Event's Participant-level Custom Fields in creation order. */
 export function listParticipantFields(
 	definitions: Record<string, CustomFieldDefinition>,
 	eventId: string
 ): CustomFieldDefinition[] {
 	return Object.values(definitions)
 		.filter((definition) => definition.level === 'participant' && definition.event === eventId)
-		.sort((a, b) => a.id.localeCompare(b.id));
+		.sort(compareByCreation);
 }
 
 function isIsoCalendarDate(value: string): boolean {
@@ -231,7 +219,6 @@ export function isValidCustomValue(definition: CustomFieldDefinition, value: str
 	}
 }
 
-/** The record's value for a Custom Field; absent means empty. */
 export function customValueOf(record: CustomValuedRecord, definitionId: string): string {
 	return record.customValues?.[definitionId] ?? '';
 }
@@ -280,12 +267,6 @@ export function listUsedCustomValues<T extends CustomValuedRecord>(
 	return [...new Set(values)].sort();
 }
 
-/**
- * Removing a Custom Field definition cascades to its recorded values: the definition is
- * deleted and every record carrying a value for it loses that value. The UI states this
- * in its confirmation before committing. Returns the record to delete plus the cleared
- * records to write back.
- */
 export function removeCustomFieldDefinition<T extends CustomValuedRecord>(
 	records: Record<string, T>,
 	definitionId: string

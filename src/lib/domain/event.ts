@@ -1,8 +1,5 @@
-// Event (CONTEXT.md): a single event, the top-level entity everything else is scoped to.
-// Minimal built-in schema (ADR-0002): a name and nothing else. Framework-free — no
-// `svelte` imports.
 import { newRecordId } from './ids';
-import type { Library, LibraryRecord, RecordKey } from './library';
+import { compareByCreation, type Library, type LibraryRecord, type RecordKey } from './library';
 
 export interface Event extends LibraryRecord {
 	readonly name: string;
@@ -16,23 +13,16 @@ function normalizeEventName(name: string): string {
 	return trimmedName;
 }
 
-/** Create an Event from organizer input. Blank names are rejected. */
 export function createEvent(name: string): Event {
 	return { id: newRecordId(), name: normalizeEventName(name) };
 }
 
-/** Rename an Event. Blank names are rejected. */
 export function renameEvent(event: Event, name: string): Event {
 	return { ...event, name: normalizeEventName(name) };
 }
 
-/**
- * The records a scoped delete of an Event removes: the Event itself and everything
- * scoped to it — its Participants, Roles, and Participant-level Custom Field
- * definitions (their values live on the removed Participants). Persons are never
- * included: those left with zero Participants become orphans and are retained; only
- * Erasure removes a Person (ADR-0005).
- */
+// Persons are never Event-scoped: those left without Participants are retained
+// as orphans; only Erasure removes a Person.
 export function collectEventScopedDeletions(library: Library, eventId: string): RecordKey[] {
 	const deletions: RecordKey[] = [{ section: 'events', id: eventId }];
 	for (const participant of Object.values(library.participants)) {
@@ -53,7 +43,6 @@ export function collectEventScopedDeletions(library: Library, eventId: string): 
 	return deletions;
 }
 
-/** All Events in creation order — UUID v7 keys sort chronologically (ADR-0006). */
 export function listEventsByCreation(events: Record<string, Event>): Event[] {
-	return Object.values(events).sort((a, b) => a.id.localeCompare(b.id));
+	return Object.values(events).sort(compareByCreation);
 }
