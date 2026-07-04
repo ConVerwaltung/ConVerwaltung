@@ -82,7 +82,8 @@ describe('renameEvent', () => {
 describe('collectEventScopedDeletions', () => {
 	// A Library with two Events, three Persons and three Participants: Ada takes part in
 	// both Events, Grace only in the summer one, and Kurt is an orphan Person. Each Event
-	// defines one Role.
+	// defines one Role and one Participant-level Custom Field; one Person-level Custom
+	// Field is global.
 	function libraryWithTwoEvents(): {
 		library: Library;
 		summerFest: Event;
@@ -101,6 +102,21 @@ describe('collectEventScopedDeletions', () => {
 		library.participants['pa3'] = { id: 'pa3', event: summerFest.id, person: 'grace', roles: [] };
 		library.roles['ro1'] = { id: 'ro1', event: summerFest.id, name: 'Gast' };
 		library.roles['ro2'] = { id: 'ro2', event: autumnFest.id, name: 'Gast' };
+		library.customFields['cf1'] = {
+			id: 'cf1',
+			level: 'participant',
+			type: 'text',
+			event: summerFest.id,
+			name: 'Zimmer'
+		};
+		library.customFields['cf2'] = {
+			id: 'cf2',
+			level: 'participant',
+			type: 'text',
+			event: autumnFest.id,
+			name: 'Zimmer'
+		};
+		library.customFields['cf3'] = { id: 'cf3', level: 'person', type: 'text', name: 'E-Mail' };
 		return { library, summerFest, autumnFest };
 	}
 
@@ -118,6 +134,15 @@ describe('collectEventScopedDeletions', () => {
 		expect(Object.keys(library.events)).toEqual([autumnFest.id]);
 		expect(Object.keys(library.participants)).toEqual(['pa2']);
 		expect(Object.keys(library.roles)).toEqual(['ro2']);
+	});
+
+	it('removes exactly the Event’s own Participant-level Custom Field definitions', () => {
+		const { library, summerFest } = libraryWithTwoEvents();
+
+		applyDeletions(library, collectEventScopedDeletions(library, summerFest.id));
+
+		// The other Event’s definition and the global Person-level definition survive.
+		expect(Object.keys(library.customFields).sort()).toEqual(['cf2', 'cf3']);
 	});
 
 	it('leaves every Person untouched, including resulting orphans (ADR-0005)', () => {

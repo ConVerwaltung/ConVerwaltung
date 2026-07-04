@@ -15,8 +15,8 @@ export interface LibraryRecord {
 
 /**
  * A record living in one Event's scope: a scoped delete of that Event removes it.
- * Participants and Roles today; later slices add Participant-level Custom Field
- * definitions. Persons are never event-scoped (ADR-0005).
+ * Participants and Roles; Participant-level Custom Field definitions carry the same
+ * `event` reference as an optional field. Persons are never event-scoped (ADR-0005).
  */
 export interface EventScopedRecord extends LibraryRecord {
 	readonly event: string;

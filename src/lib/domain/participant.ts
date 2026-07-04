@@ -1,11 +1,13 @@
 // Participant: a specific Person's involvement in a specific Event. Built-in structure
 // is `event`, `person`, `roles` plus the Note (belonging to that Event only); everything
-// else is left to Custom Fields. Framework-free — no `svelte` imports.
+// else is left to Custom Fields, whose Participant-level values are recorded on the
+// Participant. Framework-free — no `svelte` imports.
+import type { CustomValuedRecord } from './custom-field';
 import { newRecordId } from './ids';
 import type { EventScopedRecord, RecordKey } from './library';
 import type { NotedRecord } from './note';
 
-export interface Participant extends EventScopedRecord, NotedRecord {
+export interface Participant extends EventScopedRecord, NotedRecord, CustomValuedRecord {
 	readonly person: string;
 	/** Ids of Roles defined in the same Event; assignment lives in `role.ts`. */
 	readonly roles: readonly string[];
