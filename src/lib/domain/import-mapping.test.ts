@@ -114,7 +114,7 @@ describe('shapeRows', () => {
 	});
 
 	it('restates each row under its mapped targets and drops unmapped columns', () => {
-		expect(shapeRows(table, fullMapping)).toEqual([
+		expect(shapeRows(table, fullMapping.columns)).toEqual([
 			{
 				personName: 'Ada Lovelace',
 				personValues: { 'field-1': 'SV Nord' },
@@ -141,14 +141,14 @@ describe('shapeRows', () => {
 				columns: ['Name', 'Rolle', 'Zusatzrolle'],
 				rows: [['Ada', 'Gast', 'Helferin'], ['Grace', 'Gast', 'Gast']]
 			},
-			twoRoleColumns
+			twoRoleColumns.columns
 		);
 
 		expect(shaped.map((row) => row.roleNames)).toEqual([['Gast', 'Helferin'], ['Gast']]);
 	});
 
 	it('treats missing cells of a short row as empty', () => {
-		const shaped = shapeRows({ columns: table.columns, rows: [['Ada']] }, fullMapping);
+		const shaped = shapeRows({ columns: table.columns, rows: [['Ada']] }, fullMapping.columns);
 
 		expect(shaped).toEqual([
 			{ personName: 'Ada', personValues: {}, participantValues: {}, roleNames: [] }
@@ -158,7 +158,7 @@ describe('shapeRows', () => {
 	it('skips mapped columns the file does not have', () => {
 		const shaped = shapeRows(
 			{ columns: ['Name'], rows: [['Ada']] },
-			fullMapping
+			fullMapping.columns
 		);
 
 		expect(shaped).toEqual([
@@ -168,7 +168,10 @@ describe('shapeRows', () => {
 
 	it('rejects a file without the Person-identity column', () => {
 		expect(() =>
-			shapeRows({ columns: ['Verein', 'Rolle'], rows: [['SV Nord', 'Gast']] }, fullMapping)
+			shapeRows(
+				{ columns: ['Verein', 'Rolle'], rows: [['SV Nord', 'Gast']] },
+				fullMapping.columns
+			)
 		).toThrow();
 	});
 });

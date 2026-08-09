@@ -3,11 +3,13 @@
 	import { page } from '$app/state';
 	import { parseCsv, type CsvTable } from '$lib/domain/csv';
 	import { listParticipantFields, listPersonFields } from '$lib/domain/custom-field';
+	import { planImport, type ImportPlan } from '$lib/domain/import';
 	import {
 		defineImportMapping,
 		isImportMappingNameDefined,
 		listImportMappingsByName,
 		missingMappedColumns,
+		shapeRows,
 		type ColumnTarget,
 		type ImportMapping
 	} from '$lib/domain/import-mapping';
@@ -23,6 +25,8 @@
 	let selectedMappingId = $state('');
 	let unresolvedColumns: string[] = $state([]);
 	let mappingName = $state('');
+	let importResult = $state<ImportPlan | null>(null);
+	let importing = $state(false);
 
 	const event = $derived(libraryState.library.events[page.url.searchParams.get('id') ?? '']);
 	const personFields = $derived(listPersonFields(libraryState.library.customFields));
@@ -49,6 +53,10 @@
 			: missingMappedColumns(selectedMapping, table.columns)
 	);
 	const previewRows = $derived(table === null ? [] : table.rows.slice(0, PREVIEW_ROW_LIMIT));
+	const draftColumns = $derived(decodeTargets(draftTargets));
+	const importDisabled = $derived(
+		table === null || identityCount !== 1 || importResult !== null || importing
+	);
 
 	function encodeTarget(target: ColumnTarget): string {
 		switch (target.kind) {
@@ -77,6 +85,17 @@
 			return { kind: 'participantField', fieldName: encoded.slice('participant:'.length) };
 		}
 		return undefined;
+	}
+
+	function decodeTargets(targets: Record<string, string>): Record<string, ColumnTarget> {
+		const columns: Record<string, ColumnTarget> = {};
+		for (const [column, encoded] of Object.entries(targets)) {
+			const target = decodeTarget(encoded);
+			if (target !== undefined) {
+				columns[column] = target;
+			}
+		}
+		return columns;
 	}
 
 	function targetLabel(column: string): string {
@@ -110,6 +129,7 @@
 		parseError = '';
 		selectedMappingId = '';
 		unresolvedColumns = [];
+		importResult = null;
 		try {
 			table = parseCsv(await file.text());
 			fileName = file.name;
@@ -164,17 +184,36 @@
 		if (saveInvalid) {
 			return;
 		}
-		const columns: Record<string, ColumnTarget> = {};
-		for (const [column, encoded] of Object.entries(draftTargets)) {
-			const target = decodeTarget(encoded);
-			if (target !== undefined) {
-				columns[column] = target;
-			}
-		}
-		const mapping = defineImportMapping(libraryState.library.importMappings, mappingName, columns);
+		const mapping = defineImportMapping(
+			libraryState.library.importMappings,
+			mappingName,
+			draftColumns
+		);
 		await upsertRecord('importMappings', mapping);
 		selectedMappingId = mapping.id;
 		mappingName = '';
+	}
+
+	async function runImport() {
+		if (importDisabled || table === null) {
+			return;
+		}
+		importing = true;
+		const rows = shapeRows(table, draftColumns);
+		const plan = planImport(
+			libraryState.library.customFields,
+			libraryState.library.roles,
+			event.id,
+			rows
+		);
+		for (const person of plan.persons) {
+			await upsertRecord('persons', person);
+		}
+		for (const participant of plan.participants) {
+			await upsertRecord('participants', participant);
+		}
+		importResult = plan;
+		importing = false;
 	}
 </script>
 
@@ -190,7 +229,7 @@
 		<h2>Import — {event.name}</h2>
 		<p><a href="{resolve('/event')}?id={event.id}">Zurück zur Veranstaltung</a></p>
 		<p>
-			Vorschau der Import-Zuordnung: es werden noch keine Personen oder Teilnehmer angelegt.
+			CSV-Datei wählen, Spalten zuordnen, Vorschau prüfen und den Import ausführen.
 		</p>
 
 		<label>
@@ -266,6 +305,7 @@
 			<table>
 				<thead>
 					<tr>
+						<th>Zeile</th>
 						{#each table.columns as column, index (index)}
 							<th class:ignored={column === '' || isIgnored(column)}>
 								{column === '' ? '(ohne Namen)' : column}
@@ -278,6 +318,7 @@
 				<tbody>
 					{#each previewRows as row, rowIndex (rowIndex)}
 						<tr>
+							<td>{rowIndex + 1}</td>
 							{#each table.columns as column, index (index)}
 								<td class:ignored={column === '' || isIgnored(column)}>{row[index] ?? ''}</td>
 							{/each}
@@ -287,6 +328,45 @@
 			</table>
 			{#if table.rows.length > PREVIEW_ROW_LIMIT}
 				<p>… und {table.rows.length - PREVIEW_ROW_LIMIT} weitere Zeilen.</p>
+			{/if}
+
+			<h3>Import ausführen</h3>
+			<p>
+				Jede Zeile legt eine neue Person und einen Teilnehmer in „{event.name}“ an; wiederkehrende
+				Personen werden noch nicht erkannt.
+			</p>
+			<p>
+				Rollennamen, die diese Veranstaltung nicht als Rolle definiert hat, werden nicht zugewiesen,
+				sondern im Ergebnis gemeldet. Zeilen ohne Namen werden übersprungen.
+			</p>
+			<button type="button" onclick={runImport} disabled={importDisabled}>
+				{table.rows.length} Zeilen importieren
+			</button>
+
+			{#if importResult !== null}
+				<h4>Ergebnis</h4>
+				<p>
+					{importResult.persons.length} Personen mit Teilnehmern angelegt,
+					{importResult.skippedRowNumbers.length} Zeilen übersprungen.
+				</p>
+				{#if importResult.skippedRowNumbers.length > 0}
+					<p>Ohne Namen, daher übersprungen — Zeilen: {importResult.skippedRowNumbers.join(', ')}</p>
+				{/if}
+				{#if importResult.unknownRoleNames.length > 0}
+					<p>
+						In dieser Veranstaltung nicht definiert, daher nicht zugewiesen — Rollen:
+						{importResult.unknownRoleNames.join(', ')}
+					</p>
+				{/if}
+				{#if importResult.rejectedValues.length > 0}
+					<p>Passt nicht zum Feldtyp, daher nicht übernommen:</p>
+					<ul>
+						{#each importResult.rejectedValues as rejected, index (index)}
+							<li>Zeile {rejected.rowNumber}, {rejected.fieldName}: „{rejected.value}“</li>
+						{/each}
+					</ul>
+				{/if}
+				<p>Für einen weiteren Import eine Datei wählen.</p>
 			{/if}
 		{/if}
 	</section>

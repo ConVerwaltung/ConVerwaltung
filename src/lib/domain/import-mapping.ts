@@ -106,13 +106,14 @@ function shapeRow(
 // The parse-phase output (ADR-0001): rows restated as their mapped targets,
 // nothing matched or committed. Mapped columns the file lacks are skipped,
 // except the identity column, without which rows cannot name a Person.
-export function shapeRows(table: CsvTable, mapping: ImportMapping): ShapedRow[] {
+export function shapeRows(
+	table: CsvTable,
+	columns: Readonly<Record<string, ColumnTarget>>
+): ShapedRow[] {
 	const indexByColumn = new Map(table.columns.map((column, index) => [column, index]));
-	const identityPresent = identityColumnsOf(mapping.columns).some((column) =>
-		indexByColumn.has(column)
-	);
+	const identityPresent = identityColumnsOf(columns).some((column) => indexByColumn.has(column));
 	if (!identityPresent) {
 		throw new Error('The Person-identity column is missing from the file');
 	}
-	return table.rows.map((row) => shapeRow(row, mapping.columns, indexByColumn));
+	return table.rows.map((row) => shapeRow(row, columns, indexByColumn));
 }

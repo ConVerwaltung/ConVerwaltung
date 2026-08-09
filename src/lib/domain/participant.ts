@@ -19,6 +19,14 @@ export function isParticipant(
 	);
 }
 
+export function createParticipant(
+	eventId: string,
+	personId: string,
+	roles: readonly string[]
+): Participant {
+	return { id: newRecordId(), event: eventId, person: personId, roles };
+}
+
 export function addParticipant(
 	participants: Record<string, Participant>,
 	eventId: string,
@@ -27,7 +35,7 @@ export function addParticipant(
 	if (isParticipant(participants, eventId, personId)) {
 		throw new Error('Person is already a Participant in this Event');
 	}
-	return { id: newRecordId(), event: eventId, person: personId, roles: [] };
+	return createParticipant(eventId, personId, []);
 }
 
 // The Person is never included: left without Participants they are retained
