@@ -19,8 +19,9 @@
 		<h2>Export — {event.name}</h2>
 		<p><a href="{resolve('/event')}?id={event.id}">Zurück zur Veranstaltung</a></p>
 		<p>
-			Eine Export-Ansicht legt fest, welche Felder in welcher Reihenfolge zu Spalten werden. Beim
-			Herunterladen entsteht daraus eine CSV-Datei mit einer Zeile je Teilnehmer.
+			Eine Export-Ansicht legt fest, welche Teilnehmer der Filter erfasst und welche Felder in
+			welcher Reihenfolge zu Spalten werden. Beim Herunterladen entsteht daraus eine CSV-Datei mit
+			einer Zeile je erfasstem Teilnehmer.
 		</p>
 
 		<ExportViewManager level="participant" eventId={event.id} />

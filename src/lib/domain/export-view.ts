@@ -1,5 +1,6 @@
 import type { CsvTable } from './csv';
 import { customValueOf, type CustomFieldDefinition } from './custom-field';
+import { matchesFilter, normalizeFilter, type FilterCondition } from './export-filter';
 import { newRecordId } from './ids';
 import type { Library, LibraryRecord } from './library';
 import { noteOf } from './note';
@@ -28,7 +29,13 @@ export interface ExportView extends LibraryRecord {
 	readonly level: ExportLevel;
 	/** Absent on Person-level views — they cover the whole Person pool. */
 	readonly event?: string;
+	/** Absent when the view covers every record of its level. */
+	readonly filter?: readonly FilterCondition[];
 	readonly columns: readonly ExportColumn[];
+}
+
+export function filterOf(view: ExportView): readonly FilterCondition[] {
+	return view.filter ?? [];
 }
 
 export function isExportViewNameDefined(
@@ -81,15 +88,18 @@ export function defineExportView(
 	level: ExportLevel,
 	eventId: string | undefined,
 	name: string,
+	filter: readonly FilterCondition[],
 	columns: readonly ExportColumn[]
 ): ExportView {
 	const viewName = normalizeViewName(views, level, eventId, name);
+	const viewFilter = normalizeFilter(filter);
 	const viewColumns = normalizeColumns(columns);
 	return {
 		id: newRecordId(),
 		name: viewName,
 		level,
 		...(eventId === undefined ? {} : { event: eventId }),
+		...(viewFilter.length === 0 ? {} : { filter: viewFilter }),
 		columns: viewColumns
 	};
 }
@@ -173,14 +183,34 @@ function participantRow(
 	return columns.map((column) => participantCell(participant, person, roleNames, column.source));
 }
 
-function personRows(library: Library, view: ExportView): string[][] {
+function selectPersons(library: Library, conditions: readonly FilterCondition[]): Person[] {
 	const persons = listPersonsByName(library.persons);
+	return persons.filter((person) => {
+		const record = { person };
+		return matchesFilter(conditions, library.customFields, record);
+	});
+}
+
+function selectParticipants(
+	library: Library,
+	eventId: string,
+	conditions: readonly FilterCondition[]
+): Participant[] {
+	const participants = listParticipants(library.participants, eventId);
+	return participants.filter((participant) => {
+		const record = { person: library.persons[participant.person], participant };
+		return matchesFilter(conditions, library.customFields, record);
+	});
+}
+
+function personRows(library: Library, view: ExportView): string[][] {
+	const persons = selectPersons(library, filterOf(view));
 	return persons.map((person) => personRow(view.columns, person));
 }
 
 function participantRows(library: Library, view: ExportView): string[][] {
 	const eventId = view.event ?? '';
-	const participants = listParticipants(library.participants, eventId);
+	const participants = selectParticipants(library, eventId, filterOf(view));
 	const eventRoles = listRoles(library.roles, eventId);
 	return participants.map((participant) => {
 		const person = library.persons[participant.person];
@@ -192,6 +222,50 @@ export function projectExportView(library: Library, view: ExportView): CsvTable 
 	const columns = view.columns.map((column) => column.name);
 	const rows = view.level === 'person' ? personRows(library, view) : participantRows(library, view);
 	return { columns, rows };
+}
+
+const PREVIEW_SAMPLE_LIMIT = 5;
+
+export interface FilterPreview {
+	readonly matching: number;
+	readonly total: number;
+	readonly sampleNames: readonly string[];
+}
+
+function personPreview(library: Library, conditions: readonly FilterCondition[]): FilterPreview {
+	const persons = selectPersons(library, conditions);
+	const sample = persons.slice(0, PREVIEW_SAMPLE_LIMIT);
+	return {
+		matching: persons.length,
+		total: Object.keys(library.persons).length,
+		sampleNames: sample.map((person) => person.name)
+	};
+}
+
+function participantPreview(
+	library: Library,
+	eventId: string,
+	conditions: readonly FilterCondition[]
+): FilterPreview {
+	const participants = selectParticipants(library, eventId, conditions);
+	const sample = participants.slice(0, PREVIEW_SAMPLE_LIMIT);
+	return {
+		matching: participants.length,
+		total: listParticipants(library.participants, eventId).length,
+		sampleNames: sample.map((participant) => library.persons[participant.person].name)
+	};
+}
+
+export function previewFilter(
+	library: Library,
+	level: ExportLevel,
+	eventId: string | undefined,
+	conditions: readonly FilterCondition[]
+): FilterPreview {
+	if (level === 'person') {
+		return personPreview(library, conditions);
+	}
+	return participantPreview(library, eventId ?? '', conditions);
 }
 
 export function exportFileName(view: ExportView): string {

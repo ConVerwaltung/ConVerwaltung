@@ -5,9 +5,11 @@
 		listPersonFields,
 		type CustomFieldDefinition
 	} from '$lib/domain/custom-field';
+	import type { FilterCondition } from '$lib/domain/export-filter';
 	import {
 		defineExportView,
 		exportFileName,
+		filterOf,
 		isExportViewNameDefined,
 		listExportViews,
 		projectExportView,
@@ -20,6 +22,8 @@
 	import type { RecordKey } from '$lib/domain/library';
 	import { libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
 	import { downloadCsv } from '$lib/store/csv-download';
+	import ExportFilterEditor from './ExportFilterEditor.svelte';
+	import { conditionLabel } from './filter-labels';
 
 	interface Props {
 		level: ExportLevel;
@@ -50,6 +54,7 @@
 	};
 
 	let draftColumns: DraftColumn[] = $state([]);
+	let draftFilter: FilterCondition[] = $state([]);
 	let newSource = $state('personName');
 	let viewName = $state('');
 
@@ -174,11 +179,20 @@
 			level,
 			eventId,
 			viewName,
+			draftFilter,
 			columns
 		);
 		await upsertRecord('exportViews', view);
 		viewName = '';
+		draftFilter = [];
 		draftColumns = [];
+	}
+
+	function filterSummary(view: ExportView): string {
+		const labels = filterOf(view).map((condition) =>
+			conditionLabel(condition, libraryState.library.customFields, libraryState.library.roles)
+		);
+		return labels.join(' und ');
 	}
 
 	function runView(view: ExportView) {
@@ -212,9 +226,15 @@
 	<ul>
 		{#each views as view (view.id)}
 			{@const unresolved = unresolvedColumnNames(view, libraryState.library.customFields)}
+			{@const summary = filterSummary(view)}
 			<li>
 				{view.name}
 				<small>Spalten: {view.columns.map((column) => column.name).join(', ')}</small>
+				{#if summary === ''}
+					<small>Filter: alle Datensätze</small>
+				{:else}
+					<small>Filter: {summary}</small>
+				{/if}
 				<button type="button" onclick={() => runView(view)}>CSV herunterladen</button>
 				<button type="button" onclick={() => removeView(view)}>Entfernen</button>
 				{#if unresolved.length > 0}
@@ -237,6 +257,9 @@
 		<span>Name bereits vergeben.</span>
 	{/if}
 
+	<ExportFilterEditor {level} {eventId} bind:conditions={draftFilter} />
+
+	<h5>Spalten</h5>
 	<label>
 		Spalte aus
 		<select bind:value={newSource}>

@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { validate as uuidValidate, version as uuidVersion } from 'uuid';
 import type { CustomFieldDefinition } from './custom-field';
+import type { FilterCondition } from './export-filter';
 import {
 	defineExportView,
 	exportFileName,
+	filterOf,
 	isExportViewNameDefined,
 	listExportViews,
+	previewFilter,
 	projectExportView,
 	unresolvedColumnNames,
 	type ExportColumn,
@@ -32,39 +35,66 @@ function view(
 
 describe('defineExportView', () => {
 	it('creates a named Person-level Export View with a UUID v7 id', () => {
-		const created = defineExportView({}, 'person', undefined, '  Adressliste ', [nameColumn]);
+		const created = defineExportView({}, 'person', undefined, '  Adressliste ', [], [nameColumn]);
 
 		expect(created.name).toBe('Adressliste');
 		expect(created.level).toBe('person');
 		expect(created.event).toBeUndefined();
+		expect(created.filter).toBeUndefined();
 		expect(created.columns).toEqual([nameColumn]);
 		expect(uuidValidate(created.id)).toBe(true);
 		expect(uuidVersion(created.id)).toBe(7);
 	});
 
 	it('scopes a Participant-level Export View to its Event', () => {
-		const created = defineExportView({}, 'participant', 'ev1', 'Teilnehmerliste', [nameColumn]);
+		const created = defineExportView({}, 'participant', 'ev1', 'Teilnehmerliste', [], [nameColumn]);
 
 		expect(created.level).toBe('participant');
 		expect(created.event).toBe('ev1');
 	});
 
 	it('trims output column names', () => {
-		const created = defineExportView({}, 'person', undefined, 'Adressliste', [
+		const created = defineExportView({}, 'person', undefined, 'Adressliste', [], [
 			{ source: { kind: 'personName' }, name: '  Voller Name  ' }
 		]);
 
 		expect(created.columns[0].name).toBe('Voller Name');
 	});
 
+	it('keeps the filter conditions, normalized', () => {
+		const filter: FilterCondition[] = [
+			{ kind: 'role', roleId: 'ro1', holds: true },
+			{ kind: 'field', definitionId: 'cf1', test: { kind: 'equals', value: ' SV Nord ' } }
+		];
+
+		const created = defineExportView({}, 'person', undefined, 'Adressliste', filter, [nameColumn]);
+
+		expect(created.filter).toEqual([
+			{ kind: 'role', roleId: 'ro1', holds: true },
+			{ kind: 'field', definitionId: 'cf1', test: { kind: 'equals', value: 'SV Nord' } }
+		]);
+	});
+
+	it('rejects a filter condition comparing against a blank value', () => {
+		const filter: FilterCondition[] = [
+			{ kind: 'field', definitionId: 'cf1', test: { kind: 'equals', value: '  ' } }
+		];
+
+		expect(() =>
+			defineExportView({}, 'person', undefined, 'Adressliste', filter, [nameColumn])
+		).toThrow();
+	});
+
 	it('rejects a blank name', () => {
-		expect(() => defineExportView({}, 'person', undefined, '   ', [nameColumn])).toThrow();
+		expect(() => defineExportView({}, 'person', undefined, '   ', [], [nameColumn])).toThrow();
 	});
 
 	it('rejects a name already defined at the same level and Event', () => {
 		const views = { a: view('a', 'Adressliste') };
 
-		expect(() => defineExportView(views, 'person', undefined, 'Adressliste', [nameColumn])).toThrow();
+		expect(() =>
+			defineExportView(views, 'person', undefined, 'Adressliste', [], [nameColumn])
+		).toThrow();
 	});
 
 	it('allows the same name at another level or in another Event', () => {
@@ -73,16 +103,18 @@ describe('defineExportView', () => {
 			b: view('b', 'Liste', 'participant', 'ev1')
 		};
 
-		expect(defineExportView(views, 'participant', 'ev2', 'Liste', [nameColumn]).name).toBe('Liste');
+		expect(defineExportView(views, 'participant', 'ev2', 'Liste', [], [nameColumn]).name).toBe(
+			'Liste'
+		);
 	});
 
 	it('rejects an Export View without columns', () => {
-		expect(() => defineExportView({}, 'person', undefined, 'Adressliste', [])).toThrow();
+		expect(() => defineExportView({}, 'person', undefined, 'Adressliste', [], [])).toThrow();
 	});
 
 	it('rejects a blank output column name', () => {
 		expect(() =>
-			defineExportView({}, 'person', undefined, 'Adressliste', [
+			defineExportView({}, 'person', undefined, 'Adressliste', [], [
 				{ source: { kind: 'personName' }, name: '  ' }
 			])
 		).toThrow();
@@ -90,11 +122,17 @@ describe('defineExportView', () => {
 
 	it('rejects repeated output column names', () => {
 		expect(() =>
-			defineExportView({}, 'person', undefined, 'Adressliste', [
+			defineExportView({}, 'person', undefined, 'Adressliste', [], [
 				nameColumn,
 				{ source: { kind: 'personNote' }, name: 'Name' }
 			])
 		).toThrow();
+	});
+});
+
+describe('filterOf', () => {
+	it('reads a view without conditions as covering everything', () => {
+		expect(filterOf(view('a', 'Adressliste'))).toEqual([]);
 	});
 });
 
@@ -145,44 +183,44 @@ describe('unresolvedColumnNames', () => {
 	});
 });
 
-describe('projectExportView', () => {
-	// One Event with two Roles and both Custom Field levels; Ada takes part with
-	// two Roles and values on both levels, Grace with none of either. Kurt is an
-	// orphan Person outside the Event.
-	function libraryWithParticipants(): Library {
-		const library = createEmptyLibrary();
-		library.events['ev1'] = { id: 'ev1', name: 'Sommerfest' };
-		library.persons['ada'] = {
-			id: 'ada',
-			name: 'Ada Lovelace',
-			note: 'kommt später',
-			customValues: { cf1: 'SV Nord' }
-		};
-		library.persons['grace'] = { id: 'grace', name: 'Grace Hopper' };
-		library.persons['kurt'] = { id: 'kurt', name: 'Kurt Gödel' };
-		library.participants['pa1'] = {
-			id: 'pa1',
-			event: 'ev1',
-			person: 'ada',
-			roles: ['ro2', 'ro1'],
-			note: 'Allergie: Nüsse',
-			customValues: { cf2: '12' }
-		};
-		library.participants['pa2'] = { id: 'pa2', event: 'ev1', person: 'grace', roles: [] };
-		library.participants['pa3'] = { id: 'pa3', event: 'ev2', person: 'kurt', roles: [] };
-		library.roles['ro1'] = { id: 'ro1', event: 'ev1', name: 'Gast' };
-		library.roles['ro2'] = { id: 'ro2', event: 'ev1', name: 'Helferin' };
-		library.customFields['cf1'] = { id: 'cf1', level: 'person', type: 'text', name: 'Verein' };
-		library.customFields['cf2'] = {
-			id: 'cf2',
-			level: 'participant',
-			type: 'text',
-			event: 'ev1',
-			name: 'Zimmer'
-		};
-		return library;
-	}
+// One Event with two Roles and both Custom Field levels; Ada takes part with
+// two Roles and values on both levels, Grace with none of either. Kurt is an
+// orphan Person outside the Event.
+function libraryWithParticipants(): Library {
+	const library = createEmptyLibrary();
+	library.events['ev1'] = { id: 'ev1', name: 'Sommerfest' };
+	library.persons['ada'] = {
+		id: 'ada',
+		name: 'Ada Lovelace',
+		note: 'kommt später',
+		customValues: { cf1: 'SV Nord' }
+	};
+	library.persons['grace'] = { id: 'grace', name: 'Grace Hopper' };
+	library.persons['kurt'] = { id: 'kurt', name: 'Kurt Gödel' };
+	library.participants['pa1'] = {
+		id: 'pa1',
+		event: 'ev1',
+		person: 'ada',
+		roles: ['ro2', 'ro1'],
+		note: 'Allergie: Nüsse',
+		customValues: { cf2: '12' }
+	};
+	library.participants['pa2'] = { id: 'pa2', event: 'ev1', person: 'grace', roles: [] };
+	library.participants['pa3'] = { id: 'pa3', event: 'ev2', person: 'kurt', roles: [] };
+	library.roles['ro1'] = { id: 'ro1', event: 'ev1', name: 'Gast' };
+	library.roles['ro2'] = { id: 'ro2', event: 'ev1', name: 'Helferin' };
+	library.customFields['cf1'] = { id: 'cf1', level: 'person', type: 'text', name: 'Verein' };
+	library.customFields['cf2'] = {
+		id: 'cf2',
+		level: 'participant',
+		type: 'text',
+		event: 'ev1',
+		name: 'Zimmer'
+	};
+	return library;
+}
 
+describe('projectExportView', () => {
 	it('projects every Person, sorted by name, into the chosen columns', () => {
 		const library = libraryWithParticipants();
 		const personView: ExportView = {
@@ -260,6 +298,65 @@ describe('projectExportView', () => {
 		expect(projectExportView(library, view('a', 'Adressliste'))).toEqual({
 			columns: ['Name'],
 			rows: []
+		});
+	});
+
+	it('writes only the Persons the filter matches', () => {
+		const library = libraryWithParticipants();
+		const filteredView: ExportView = {
+			...view('a', 'Vereinsliste'),
+			filter: [{ kind: 'field', definitionId: 'cf1', test: { kind: 'notEmpty' } }]
+		};
+
+		expect(projectExportView(library, filteredView).rows).toEqual([['Ada Lovelace']]);
+	});
+
+	it('writes only the Participants the filter matches', () => {
+		const library = libraryWithParticipants();
+		const filteredView: ExportView = {
+			...view('a', 'Helferliste', 'participant', 'ev1'),
+			filter: [
+				{ kind: 'role', roleId: 'ro2', holds: true },
+				{ kind: 'field', definitionId: 'cf2', test: { kind: 'equals', value: '12' } }
+			]
+		};
+
+		expect(projectExportView(library, filteredView).rows).toEqual([['Ada Lovelace']]);
+	});
+});
+
+describe('previewFilter', () => {
+	it('counts the matching Persons and names the first of them', () => {
+		const library = libraryWithParticipants();
+		const conditions: FilterCondition[] = [
+			{ kind: 'field', definitionId: 'cf1', test: { kind: 'notEmpty' } }
+		];
+
+		expect(previewFilter(library, 'person', undefined, conditions)).toEqual({
+			matching: 1,
+			total: 3,
+			sampleNames: ['Ada Lovelace']
+		});
+	});
+
+	it('counts the Participants of the Event alone', () => {
+		const library = libraryWithParticipants();
+
+		expect(previewFilter(library, 'participant', 'ev1', [])).toEqual({
+			matching: 2,
+			total: 2,
+			sampleNames: ['Ada Lovelace', 'Grace Hopper']
+		});
+	});
+
+	it('narrows the count as conditions are added', () => {
+		const library = libraryWithParticipants();
+		const conditions: FilterCondition[] = [{ kind: 'role', roleId: 'ro1', holds: false }];
+
+		expect(previewFilter(library, 'participant', 'ev1', conditions)).toEqual({
+			matching: 1,
+			total: 2,
+			sampleNames: ['Grace Hopper']
 		});
 	});
 });
