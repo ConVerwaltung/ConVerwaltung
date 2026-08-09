@@ -215,6 +215,7 @@
 	<section>
 		<h2>{event.name}</h2>
 		<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
+		<p><a href="{resolve('/event/import')}?id={event.id}">Import</a></p>
 
 		<h3>Rollen</h3>
 		{#if roles.length === 0}

@@ -1,5 +1,6 @@
 import type { CustomFieldDefinition } from './custom-field';
 import type { Event } from './event';
+import type { ImportMapping } from './import-mapping';
 import type { Person } from './person';
 import type { Participant } from './participant';
 import type { Role } from './role';
@@ -24,7 +25,7 @@ export interface Library {
 	participants: Record<string, Participant>;
 	roles: Record<string, Role>;
 	customFields: Record<string, CustomFieldDefinition>;
-	importMappings: Record<string, LibraryRecord>;
+	importMappings: Record<string, ImportMapping>;
 	exportViews: Record<string, LibraryRecord>;
 }
 
