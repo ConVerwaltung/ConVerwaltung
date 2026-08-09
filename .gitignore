@@ -3,6 +3,9 @@ node_modules
 # Ephemeral working issues
 /.scratch/
 
+# Sample participant lists — real personal data, never committed
+/*.csv
+
 # Output
 .output
 .vercel
