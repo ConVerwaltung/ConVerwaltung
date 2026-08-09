@@ -40,6 +40,11 @@ export function collectEventScopedDeletions(library: Library, eventId: string): 
 			deletions.push({ section: 'customFields', id: definition.id });
 		}
 	}
+	for (const view of Object.values(library.exportViews)) {
+		if (view.event === eventId) {
+			deletions.push({ section: 'exportViews', id: view.id });
+		}
+	}
 	return deletions;
 }
 

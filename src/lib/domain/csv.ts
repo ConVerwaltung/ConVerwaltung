@@ -34,3 +34,11 @@ export function parseCsv(text: string): CsvTable {
 	assertUniqueColumns(columns);
 	return { columns, rows };
 }
+
+// Comma-delimited with CRLF line endings; cells containing a delimiter, a quote
+// or a line break are quoted and their quotes doubled.
+export function formatCsv(table: CsvTable): string {
+	const fields = [...table.columns];
+	const data = table.rows.map((row) => [...row]);
+	return Papa.unparse({ fields, data });
+}

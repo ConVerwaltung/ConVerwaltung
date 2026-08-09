@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import CustomFieldManager from '$lib/components/CustomFieldManager.svelte';
 	import CustomValueInput from '$lib/components/CustomValueInput.svelte';
+	import ExportViewManager from '$lib/components/ExportViewManager.svelte';
 	import {
 		customValueOf,
 		editCustomValue,
@@ -104,6 +105,8 @@
 		<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
 
 		<CustomFieldManager level="person" />
+
+		<ExportViewManager level="person" />
 
 		<h3>Personen</h3>
 		{#if persons.length === 0}

@@ -117,6 +117,19 @@ describe('collectEventScopedDeletions', () => {
 			name: 'Zimmer'
 		};
 		library.customFields['cf3'] = { id: 'cf3', level: 'person', type: 'text', name: 'E-Mail' };
+		library.exportViews['ex1'] = {
+			id: 'ex1',
+			name: 'Gästeliste',
+			level: 'participant',
+			event: summerFest.id,
+			columns: [{ source: { kind: 'personName' }, name: 'Name' }]
+		};
+		library.exportViews['ex2'] = {
+			id: 'ex2',
+			name: 'Adressliste',
+			level: 'person',
+			columns: [{ source: { kind: 'personName' }, name: 'Name' }]
+		};
 		return { library, summerFest, autumnFest };
 	}
 
@@ -143,6 +156,14 @@ describe('collectEventScopedDeletions', () => {
 
 		// The other Event’s definition and the global Person-level definition survive.
 		expect(Object.keys(library.customFields).sort()).toEqual(['cf2', 'cf3']);
+	});
+
+	it('removes the Event’s own Export Views and keeps the Person-level ones', () => {
+		const { library, summerFest } = libraryWithTwoEvents();
+
+		applyDeletions(library, collectEventScopedDeletions(library, summerFest.id));
+
+		expect(Object.keys(library.exportViews)).toEqual(['ex2']);
 	});
 
 	it('leaves every Person untouched, including resulting orphans (ADR-0005)', () => {

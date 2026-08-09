@@ -1,5 +1,6 @@
 import type { CustomFieldDefinition } from './custom-field';
 import type { Event } from './event';
+import type { ExportView } from './export-view';
 import type { ImportMapping } from './import-mapping';
 import type { Person } from './person';
 import type { Participant } from './participant';
@@ -26,7 +27,7 @@ export interface Library {
 	roles: Record<string, Role>;
 	customFields: Record<string, CustomFieldDefinition>;
 	importMappings: Record<string, ImportMapping>;
-	exportViews: Record<string, LibraryRecord>;
+	exportViews: Record<string, ExportView>;
 }
 
 export type LibrarySection = keyof Library;
