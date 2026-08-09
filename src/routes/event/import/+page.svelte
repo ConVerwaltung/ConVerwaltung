@@ -5,18 +5,30 @@
 	import { listParticipantFields, listPersonFields } from '$lib/domain/custom-field';
 	import { planImport, type ImportPlan } from '$lib/domain/import';
 	import {
+		proposeMatches,
+		undecidedRowNumbers,
+		type ImportDecision,
+		type RowMatch
+	} from '$lib/domain/import-match';
+	import {
 		defineImportMapping,
 		isImportMappingNameDefined,
 		listImportMappingsByName,
 		missingMappedColumns,
 		shapeRows,
 		type ColumnTarget,
-		type ImportMapping
+		type ImportMapping,
+		type ShapedRow
 	} from '$lib/domain/import-mapping';
+	import { noteOf } from '$lib/domain/note';
+	import type { Person } from '$lib/domain/person';
 	import { libraryState, upsertRecord } from '$lib/library.svelte';
 
 	const IGNORE = 'ignore';
 	const PREVIEW_ROW_LIMIT = 50;
+	const NEW_PERSON = 'new';
+	const LINK_PREFIX = 'link:';
+	const NOTE_EXCERPT_LENGTH = 80;
 
 	let table = $state<CsvTable | null>(null);
 	let fileName = $state('');
@@ -25,6 +37,9 @@
 	let selectedMappingId = $state('');
 	let unresolvedColumns: string[] = $state([]);
 	let mappingName = $state('');
+	let matches = $state<RowMatch[] | null>(null);
+	let shapedRows: ShapedRow[] = $state([]);
+	let choices: Record<number, string> = $state({});
 	let importResult = $state<ImportPlan | null>(null);
 	let importing = $state(false);
 
@@ -54,8 +69,10 @@
 	);
 	const previewRows = $derived(table === null ? [] : table.rows.slice(0, PREVIEW_ROW_LIMIT));
 	const draftColumns = $derived(decodeTargets(draftTargets));
+	const decisions = $derived(decodeDecisions(choices));
+	const undecidedRows = $derived(matches === null ? [] : undecidedRowNumbers(matches, decisions));
 	const importDisabled = $derived(
-		table === null || identityCount !== 1 || importResult !== null || importing
+		matches === null || undecidedRows.length > 0 || importResult !== null || importing
 	);
 
 	function encodeTarget(target: ColumnTarget): string {
@@ -121,6 +138,61 @@
 		return encoded === undefined || encoded === IGNORE;
 	}
 
+	function decodeDecisions(chosen: Record<number, string>): Map<number, ImportDecision> {
+		const decided = new Map<number, ImportDecision>();
+		for (const [rowNumber, choice] of Object.entries(chosen)) {
+			if (choice === NEW_PERSON) {
+				decided.set(Number(rowNumber), { kind: 'new' });
+			} else if (choice.startsWith(LINK_PREFIX)) {
+				const personId = choice.slice(LINK_PREFIX.length);
+				decided.set(Number(rowNumber), { kind: 'link', personId });
+			}
+		}
+		return decided;
+	}
+
+	function eventNamesOf(personId: string): string {
+		const names = Object.values(libraryState.library.participants)
+			.filter((participant) => participant.person === personId)
+			.map((participant) => libraryState.library.events[participant.event]?.name)
+			.filter((name) => name !== undefined);
+		return names.length === 0 ? 'bisher in keiner Veranstaltung' : names.join(', ');
+	}
+
+	function noteExcerpt(person: Person): string {
+		const note = noteOf(person).replace(/\s+/g, ' ').trim();
+		return note.length <= NOTE_EXCERPT_LENGTH ? note : `${note.slice(0, NOTE_EXCERPT_LENGTH)}…`;
+	}
+
+	function similarityPercent(similarity: number): number {
+		return Math.round(similarity * 100);
+	}
+
+	// The proposals rest on the mapped columns, so any change to them invalidates
+	// the review the organizer has done so far.
+	function resetMatching() {
+		matches = null;
+		shapedRows = [];
+		choices = {};
+		importResult = null;
+	}
+
+	function prepareMatching() {
+		if (table === null || identityCount !== 1) {
+			return;
+		}
+		const rows = shapeRows(table, draftColumns);
+		const proposals = proposeMatches(libraryState.library.persons, rows);
+		const initialChoices = proposals.map((match): [number, string] => {
+			const choice = match.candidates.length === 0 ? NEW_PERSON : '';
+			return [match.rowNumber, choice];
+		});
+		shapedRows = rows;
+		matches = proposals;
+		choices = Object.fromEntries(initialChoices);
+		importResult = null;
+	}
+
 	async function loadFile(input: HTMLInputElement) {
 		const file = input.files?.[0];
 		if (file === undefined) {
@@ -129,7 +201,7 @@
 		parseError = '';
 		selectedMappingId = '';
 		unresolvedColumns = [];
-		importResult = null;
+		resetMatching();
 		try {
 			table = parseCsv(await file.text());
 			fileName = file.name;
@@ -177,6 +249,7 @@
 		}
 		draftTargets = targets;
 		unresolvedColumns = skipped;
+		resetMatching();
 	}
 
 	async function saveMapping(submitEvent: SubmitEvent) {
@@ -195,21 +268,15 @@
 	}
 
 	async function runImport() {
-		if (importDisabled || table === null) {
+		if (importDisabled) {
 			return;
 		}
 		importing = true;
-		const rows = shapeRows(table, draftColumns);
-		const plan = planImport(
-			libraryState.library.customFields,
-			libraryState.library.roles,
-			event.id,
-			rows
-		);
-		for (const person of plan.persons) {
+		const plan = planImport(libraryState.library, event.id, shapedRows, decisions);
+		for (const person of [...plan.newPersons, ...plan.linkedPersons]) {
 			await upsertRecord('persons', person);
 		}
-		for (const participant of plan.participants) {
+		for (const participant of [...plan.newParticipants, ...plan.updatedParticipants]) {
 			await upsertRecord('participants', participant);
 		}
 		importResult = plan;
@@ -269,7 +336,7 @@
 					<li>
 						<label>
 							{column}
-							<select bind:value={draftTargets[column]}>
+							<select bind:value={draftTargets[column]} onchange={resetMatching}>
 								<option value={IGNORE}>Ignorieren</option>
 								<option value="identity">Person-Identität (Name)</option>
 								{#each personFields as field (field.id)}
@@ -330,10 +397,65 @@
 				<p>… und {table.rows.length - PREVIEW_ROW_LIMIT} weitere Zeilen.</p>
 			{/if}
 
+			<h3>Abgleich</h3>
+			<p>
+				Jede Zeile wird mit dem Personen-Pool verglichen und ähnliche Namen werden als Vorschläge
+				angeboten. Ob eine Zeile zu einer bestehenden Person gehört oder eine neue anlegt, wird pro
+				Zeile entschieden — automatisch übernommen wird kein Vorschlag.
+			</p>
+			{#if matches === null}
+				<button type="button" onclick={prepareMatching} disabled={identityCount !== 1}>
+					Abgleich vorbereiten
+				</button>
+			{:else}
+				{#if matches.length === 0}
+					<p>Keine Zeile mit Namen — es gibt nichts abzugleichen.</p>
+				{/if}
+				<ol class="review">
+					{#each matches as match (match.rowNumber)}
+						<li>
+							<p>Zeile {match.rowNumber}: <strong>{match.personName}</strong></p>
+							{#if match.candidates.length === 0}
+								<p>Keine ähnliche Person im Pool.</p>
+							{/if}
+							<label>
+								<input
+									type="radio"
+									name="decision-{match.rowNumber}"
+									value={NEW_PERSON}
+									bind:group={choices[match.rowNumber]}
+								/>
+								Neue Person anlegen
+							</label>
+							{#each match.candidates as candidate (candidate.person.id)}
+								<label>
+									<input
+										type="radio"
+										name="decision-{match.rowNumber}"
+										value="{LINK_PREFIX}{candidate.person.id}"
+										bind:group={choices[match.rowNumber]}
+									/>
+									{candidate.person.name} — {similarityPercent(candidate.similarity)} % Ähnlichkeit
+									<small>
+										{eventNamesOf(candidate.person.id)}{#if noteExcerpt(candidate.person) !== ''}
+											&nbsp;— Notiz: „{noteExcerpt(candidate.person)}“
+										{/if}
+									</small>
+								</label>
+							{/each}
+						</li>
+					{/each}
+				</ol>
+				{#if undecidedRows.length > 0}
+					<p>Noch offen — Zeilen: {undecidedRows.join(', ')}</p>
+				{/if}
+			{/if}
+
 			<h3>Import ausführen</h3>
 			<p>
-				Jede Zeile legt eine neue Person und einen Teilnehmer in „{event.name}“ an; wiederkehrende
-				Personen werden noch nicht erkannt.
+				Verknüpfte Zeilen schreiben ihre zugeordneten Werte in die bestehende Person und legen einen
+				Teilnehmer in „{event.name}“ an; nimmt die Person dort bereits teil, wird dieser Teilnehmer
+				aktualisiert. Alle übrigen Zeilen legen eine neue Person an.
 			</p>
 			<p>
 				Rollennamen, die diese Veranstaltung nicht als Rolle definiert hat, werden nicht zugewiesen,
@@ -346,7 +468,10 @@
 			{#if importResult !== null}
 				<h4>Ergebnis</h4>
 				<p>
-					{importResult.persons.length} Personen mit Teilnehmern angelegt,
+					{importResult.newPersons.length} Personen neu angelegt,
+					{importResult.linkedPersons.length} bestehende Personen verknüpft,
+					{importResult.newParticipants.length} Teilnehmer angelegt,
+					{importResult.updatedParticipants.length} Teilnehmer aktualisiert,
 					{importResult.skippedRowNumbers.length} Zeilen übersprungen.
 				</p>
 				{#if importResult.skippedRowNumbers.length > 0}
@@ -387,5 +512,19 @@
 
 	.ignored {
 		opacity: 0.45;
+	}
+
+	.review li {
+		margin-bottom: 0.75rem;
+	}
+
+	.review label {
+		display: block;
+	}
+
+	.review small {
+		display: block;
+		margin-left: 1.5rem;
+		opacity: 0.75;
 	}
 </style>
