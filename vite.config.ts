@@ -11,16 +11,32 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter({ fallback: '200.html' }),
+			// Kit's default `true` sets Vite's base to './', which makes the generated
+			// registration call `new Workbox('./sw.js')` — a 404 on any route of depth ≥ 2,
+			// so wb.register() rejects and the update check never runs. Absolute paths also
+			// match the fallback document, which always carries them (ADR-0008).
+			paths: { relative: false }
 		}),
 		SvelteKitPWA({
-			registerType: 'autoUpdate',
+			// 'prompt', not 'autoUpdate': the Import review holds a parsed file and its row
+			// decisions in component state, and a reload destroys them (ADR-0008).
+			registerType: 'prompt',
+			kit: {
+				// adapter-static writes 200.html into build/ after this plugin has globbed
+				// the output, so without `spa` the precache silently lacks the fallback and
+				// cold offline deep links fail.
+				adapterFallback: '200.html',
+				spa: true
+			},
 			workbox: {
-				// Every route is prerendered and precached. The default navigation fallback
-				// would answer every hard navigation with the precached '/', hydrating the
-				// wrong page on e.g. /event. Serve navigations from the precache by pathname
-				// instead, ignoring query parameters such as ?id=.
-				navigateFallback: null,
+				// 'prompt' sets neither skipWaiting nor clientsClaim; without clientsClaim a
+				// first install stays online-only until relaunch. The split is deliberate —
+				// see ADR-0008, Amendment 2026-08-13.
+				clientsClaim: true,
+				// Precache routes are registered before the navigation fallback and match by
+				// exact URL, so the prerendered routes keep serving their own documents; the
+				// dynamic subtrees land on 200.html.
 				ignoreURLParametersMatching: [/./]
 			},
 			manifest: {

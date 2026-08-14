@@ -50,6 +50,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Veranstaltungen – AMTS</title>
+</svelte:head>
+
 {#if libraryState.status === 'loading'}
 	<p>Bibliothek wird geladen …</p>
 {:else if libraryState.status === 'error'}
@@ -57,7 +61,7 @@
 {:else}
 	<section>
 		<h2>Veranstaltungen</h2>
-		<p><a href={resolve('/persons')}>Personen-Pool</a></p>
+		<p><a href={resolve('/stammdaten')}>Personen-Pool</a></p>
 
 		<form onsubmit={addEvent}>
 			<label>
@@ -81,7 +85,7 @@
 								<button type="button" onclick={() => (renamingEventId = null)}>Abbrechen</button>
 							</form>
 						{:else}
-							<a href="{resolve('/event')}?id={event.id}">{event.name}</a>
+							<a href={resolve('/event/[id]/teilnehmer', { id: event.id })}>{event.name}</a>
 							<button type="button" onclick={() => startRename(event)}>Umbenennen</button>
 							<button type="button" onclick={() => deleteEvent(event)}>Löschen</button>
 						{/if}

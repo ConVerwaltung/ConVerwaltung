@@ -43,7 +43,14 @@
 	let importResult = $state<ImportPlan | null>(null);
 	let importing = $state(false);
 
-	const event = $derived(libraryState.library.events[page.url.searchParams.get('id') ?? '']);
+	const event = $derived(libraryState.library.events[page.params.id ?? '']);
+	const pageTitle = $derived(
+		libraryState.status !== 'ready'
+			? 'AMTS'
+			: event === undefined
+				? 'Veranstaltung nicht gefunden – AMTS'
+				: `Import – ${event.name} – AMTS`
+	);
 	const personFields = $derived(listPersonFields(libraryState.library.customFields));
 	const participantFields = $derived(
 		event === undefined ? [] : listParticipantFields(libraryState.library.customFields, event.id)
@@ -290,6 +297,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{pageTitle}</title>
+</svelte:head>
+
 {#if libraryState.status === 'loading'}
 	<p>Bibliothek wird geladen …</p>
 {:else if libraryState.status === 'error'}
@@ -300,7 +311,9 @@
 {:else}
 	<section>
 		<h2>Import — {event.name}</h2>
-		<p><a href="{resolve('/event')}?id={event.id}">Zurück zur Veranstaltung</a></p>
+		<p>
+			<a href={resolve('/event/[id]/teilnehmer', { id: event.id })}>Zurück zur Veranstaltung</a>
+		</p>
 		<p>
 			CSV-Datei wählen, Spalten zuordnen, Vorschau prüfen und den Import ausführen.
 		</p>

@@ -95,6 +95,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Stammdaten – AMTS</title>
+</svelte:head>
+
 {#if libraryState.status === 'loading'}
 	<p>Bibliothek wird geladen …</p>
 {:else if libraryState.status === 'error'}

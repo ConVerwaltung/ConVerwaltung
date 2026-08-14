@@ -43,7 +43,14 @@
 	let noteEditParticipantId: string | null = $state(null);
 	let noteDraft = $state('');
 
-	const event = $derived(libraryState.library.events[page.url.searchParams.get('id') ?? '']);
+	const event = $derived(libraryState.library.events[page.params.id ?? '']);
+	const pageTitle = $derived(
+		libraryState.status !== 'ready'
+			? 'AMTS'
+			: event === undefined
+				? 'Veranstaltung nicht gefunden – AMTS'
+				: `Teilnehmer – ${event.name} – AMTS`
+	);
 	const participants = $derived(
 		event === undefined ? [] : listParticipants(libraryState.library.participants, event.id)
 	);
@@ -206,6 +213,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{pageTitle}</title>
+</svelte:head>
+
 {#if libraryState.status === 'loading'}
 	<p>Bibliothek wird geladen …</p>
 {:else if libraryState.status === 'error'}
@@ -217,8 +228,8 @@
 	<section>
 		<h2>{event.name}</h2>
 		<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
-		<p><a href="{resolve('/event/import')}?id={event.id}">Import</a></p>
-		<p><a href="{resolve('/event/export')}?id={event.id}">Export</a></p>
+		<p><a href={resolve('/event/[id]/import', { id: event.id })}>Import</a></p>
+		<p><a href={resolve('/event/[id]/export', { id: event.id })}>Export</a></p>
 
 		<h3>Rollen</h3>
 		{#if roles.length === 0}
