@@ -1,5 +1,9 @@
 import type { CsvTable } from './csv';
-import { customValueOf, type CustomFieldDefinition } from './custom-field';
+import {
+	customValueOf,
+	listParticipantFields,
+	type CustomFieldDefinition
+} from './custom-field';
 import { matchesFilter, normalizeFilter, type FilterCondition } from './export-filter';
 import { newRecordId } from './ids';
 import type { Library, LibraryRecord } from './library';
@@ -42,11 +46,16 @@ export function isExportViewNameDefined(
 	views: Record<string, ExportView>,
 	level: ExportLevel,
 	eventId: string | undefined,
-	name: string
+	name: string,
+	exceptViewId?: string
 ): boolean {
 	const trimmedName = name.trim();
 	return Object.values(views).some(
-		(view) => view.level === level && view.event === eventId && view.name === trimmedName
+		(view) =>
+			view.id !== exceptViewId
+			&& view.level === level
+			&& view.event === eventId
+			&& view.name === trimmedName
 	);
 }
 
@@ -54,13 +63,14 @@ function normalizeViewName(
 	views: Record<string, ExportView>,
 	level: ExportLevel,
 	eventId: string | undefined,
-	name: string
+	name: string,
+	exceptViewId?: string
 ): string {
 	const trimmedName = name.trim();
 	if (trimmedName === '') {
 		throw new Error('Export View name must not be blank');
 	}
-	if (isExportViewNameDefined(views, level, eventId, trimmedName)) {
+	if (isExportViewNameDefined(views, level, eventId, trimmedName, exceptViewId)) {
 		throw new Error('Export View name is already defined');
 	}
 	return trimmedName;
@@ -83,6 +93,24 @@ function normalizeColumns(columns: readonly ExportColumn[]): ExportColumn[] {
 	return normalized;
 }
 
+function buildExportView(
+	id: string,
+	name: string,
+	level: ExportLevel,
+	eventId: string | undefined,
+	filter: readonly FilterCondition[],
+	columns: readonly ExportColumn[]
+): ExportView {
+	return {
+		id,
+		name,
+		level,
+		...(eventId === undefined ? {} : { event: eventId }),
+		...(filter.length === 0 ? {} : { filter }),
+		columns
+	};
+}
+
 export function defineExportView(
 	views: Record<string, ExportView>,
 	level: ExportLevel,
@@ -94,14 +122,31 @@ export function defineExportView(
 	const viewName = normalizeViewName(views, level, eventId, name);
 	const viewFilter = normalizeFilter(filter);
 	const viewColumns = normalizeColumns(columns);
-	return {
-		id: newRecordId(),
-		name: viewName,
-		level,
-		...(eventId === undefined ? {} : { event: eventId }),
-		...(viewFilter.length === 0 ? {} : { filter: viewFilter }),
-		columns: viewColumns
-	};
+	return buildExportView(newRecordId(), viewName, level, eventId, viewFilter, viewColumns);
+}
+
+export function renameExportView(
+	views: Record<string, ExportView>,
+	view: ExportView,
+	name: string
+): ExportView {
+	const viewName = normalizeViewName(views, view.level, view.event, name, view.id);
+	return { ...view, name: viewName };
+}
+
+export function updateExportViewColumns(
+	view: ExportView,
+	columns: readonly ExportColumn[]
+): ExportView {
+	return { ...view, columns: normalizeColumns(columns) };
+}
+
+export function updateExportViewFilter(
+	view: ExportView,
+	filter: readonly FilterCondition[]
+): ExportView {
+	const conditions = normalizeFilter(filter);
+	return buildExportView(view.id, view.name, view.level, view.event, conditions, view.columns);
 }
 
 export function listExportViews(
@@ -121,16 +166,163 @@ function definitionIdOf(source: ColumnSource): string | undefined {
 	return undefined;
 }
 
-/** Columns whose Custom Field has been removed since — they export as empty. */
+function isColumnResolved(
+	view: ExportView,
+	definitions: Record<string, CustomFieldDefinition>,
+	source: ColumnSource
+): boolean {
+	const definitionId = definitionIdOf(source);
+	if (definitionId === undefined) {
+		return true;
+	}
+	const definition = definitions[definitionId];
+	if (definition === undefined) {
+		return false;
+	}
+	return definition.level === 'person' || definition.event === view.event;
+}
+
+/** Columns whose Custom Field is gone or belongs to another Event — they export as empty. */
 export function unresolvedColumnNames(
 	view: ExportView,
 	definitions: Record<string, CustomFieldDefinition>
 ): string[] {
-	const unresolved = view.columns.filter((column) => {
-		const definitionId = definitionIdOf(column.source);
-		return definitionId !== undefined && definitions[definitionId] === undefined;
-	});
+	const unresolved = view.columns.filter(
+		(column) => !isColumnResolved(view, definitions, column.source)
+	);
 	return unresolved.map((column) => column.name);
+}
+
+export type UnmatchedPart =
+	| { readonly kind: 'column'; readonly column: ExportColumn }
+	| { readonly kind: 'condition'; readonly condition: FilterCondition };
+
+export interface ExportViewCopy {
+	readonly view: ExportView;
+	/** Parts without a counterpart: the columns kept empty, the conditions dropped. */
+	readonly unmatched: readonly UnmatchedPart[];
+}
+
+interface CopiedColumns {
+	readonly columns: ExportColumn[];
+	readonly unmatched: UnmatchedPart[];
+}
+
+interface CopiedFilter {
+	readonly conditions: FilterCondition[];
+	readonly unmatched: UnmatchedPart[];
+}
+
+// Ids are per-Event, so a Teilnehmer-Feld carries over only by its name.
+function matchedFieldId(
+	definitions: Record<string, CustomFieldDefinition>,
+	definitionId: string,
+	targetFields: readonly CustomFieldDefinition[]
+): string | undefined {
+	const definition = definitions[definitionId];
+	if (definition === undefined) {
+		return undefined;
+	}
+	const match = targetFields.find((field) => field.name === definition.name);
+	return match?.id;
+}
+
+function matchedRoleId(
+	roles: Record<string, Role>,
+	roleId: string,
+	targetRoles: readonly Role[]
+): string | undefined {
+	const role = roles[roleId];
+	if (role === undefined) {
+		return undefined;
+	}
+	const match = targetRoles.find((entry) => entry.name === role.name);
+	return match?.id;
+}
+
+function copyColumns(
+	columns: readonly ExportColumn[],
+	definitions: Record<string, CustomFieldDefinition>,
+	targetFields: readonly CustomFieldDefinition[]
+): CopiedColumns {
+	const copied: ExportColumn[] = [];
+	const unmatched: UnmatchedPart[] = [];
+	for (const column of columns) {
+		const source = column.source;
+		if (source.kind !== 'participantField') {
+			copied.push(column);
+			continue;
+		}
+		const definitionId = matchedFieldId(definitions, source.definitionId, targetFields);
+		if (definitionId === undefined) {
+			copied.push(column);
+			unmatched.push({ kind: 'column', column });
+			continue;
+		}
+		copied.push({ source: { kind: 'participantField', definitionId }, name: column.name });
+	}
+	return { columns: copied, unmatched };
+}
+
+function copiedCondition(
+	condition: FilterCondition,
+	library: Library,
+	targetFields: readonly CustomFieldDefinition[],
+	targetRoles: readonly Role[]
+): FilterCondition | undefined {
+	if (condition.kind === 'role') {
+		const roleId = matchedRoleId(library.roles, condition.roleId, targetRoles);
+		return roleId === undefined ? undefined : { ...condition, roleId };
+	}
+	if (library.customFields[condition.definitionId]?.level === 'person') {
+		return condition;
+	}
+	const definitionId = matchedFieldId(library.customFields, condition.definitionId, targetFields);
+	return definitionId === undefined ? undefined : { ...condition, definitionId };
+}
+
+function copyFilter(
+	conditions: readonly FilterCondition[],
+	library: Library,
+	targetFields: readonly CustomFieldDefinition[],
+	targetRoles: readonly Role[]
+): CopiedFilter {
+	const copied: FilterCondition[] = [];
+	const unmatched: UnmatchedPart[] = [];
+	for (const condition of conditions) {
+		const carried = copiedCondition(condition, library, targetFields, targetRoles);
+		if (carried === undefined) {
+			unmatched.push({ kind: 'condition', condition });
+			continue;
+		}
+		copied.push(carried);
+	}
+	return { conditions: copied, unmatched };
+}
+
+export function copyExportViewToEvent(
+	library: Library,
+	view: ExportView,
+	targetEventId: string
+): ExportViewCopy {
+	if (view.level !== 'participant') {
+		throw new Error('Only a Participant-level Export View belongs to an Event');
+	}
+	const targetFields = listParticipantFields(library.customFields, targetEventId);
+	const targetRoles = listRoles(library.roles, targetEventId);
+	const copiedColumns = copyColumns(view.columns, library.customFields, targetFields);
+	const copiedFilter = copyFilter(filterOf(view), library, targetFields, targetRoles);
+	const name = normalizeViewName(library.exportViews, 'participant', targetEventId, view.name);
+	const copy = buildExportView(
+		newRecordId(),
+		name,
+		'participant',
+		targetEventId,
+		copiedFilter.conditions,
+		copiedColumns.columns
+	);
+	const unmatched = [...copiedColumns.unmatched, ...copiedFilter.unmatched];
+	return { view: copy, unmatched };
 }
 
 const ROLE_SEPARATOR = ', ';
