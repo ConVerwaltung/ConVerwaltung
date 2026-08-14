@@ -41,6 +41,26 @@ created: <YYYY-MM-DD>
 - **Update an issue** (e.g. triage): edit the `labels:` or `status:` frontmatter in place.
 - **Close an issue**: set `status: closed` in frontmatter.
 
+## Wayfinding operations
+
+The wayfinder skill charts a **map** and its **tickets** as issues in one feature
+directory. This tracker has no native parent/child or dependency links, so both are body
+and frontmatter conventions:
+
+- **The map** is the first issue in the feature directory (`0001-*.md`), labelled
+  `wayfinder:map`. Its body holds Destination, Notes, Decisions so far, Not yet specified,
+  and Out of scope.
+- **A ticket** is any other issue in the same directory, carrying `map: 0001-<slug>.md` in
+  its frontmatter and one `wayfinder:research | prototype | grilling | task` label
+  alongside its triage labels.
+- **Blocking** is a `## Blocked by` list of ticket filenames in the body. A ticket is
+  unblocked when every ticket it lists has `status: closed`.
+- **Claiming** is an `assignee:` frontmatter field, set before any work begins.
+- **The frontier** is every ticket in the directory that is `status: open`, unblocked, and
+  has no `assignee:`.
+- **Resolving** a ticket appends a `## Resolution` section to its body, sets
+  `status: closed`, and adds one line to the map's Decisions so far linking the file.
+
 ## Notes
 
 - `.scratch/` is for ephemeral working issues. If you want issues version-controlled, ensure `.scratch/` is **not** gitignored.
