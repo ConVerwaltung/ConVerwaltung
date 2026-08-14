@@ -20,6 +20,7 @@ AMTS (Adaptives Teilnehmer-Management-System) — event participant management: 
 - `CONTEXT.md` — the domain glossary. **Read first before any domain work.** Use its exact terms (with the listed "avoid" words banned) in code, comments, tests, and issues.
 - `docs/adr/NNNN-*.md` — architectural decision records. Check before any architectural change; if a change contradicts an ADR, surface it rather than silently diverging. New domain terms or decisions → offer to update CONTEXT.md or add an ADR.
 - `docs/agents/` — conventions for engineering skills (issue tracker, triage labels, domain-doc consumption).
+- `docs/ui/` — the UI design package: `design-direction.md` (visual direction, palette, accessibility rules), `component-conventions.md` (the shared vocabulary — buttons, writes, tables, dialogs, editing, keyboard), `screens.md` (per-route information architecture). Binding for any UI work; the token file it governs is `src/lib/styles/tokens.css`.
 
 ## Architecture (decided in ADRs, binding for implementation)
 

@@ -19,3 +19,7 @@ Five canonical roles, default strings (`needs-triage`, `needs-info`, `ready-for-
 ### Domain docs
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### UI design
+
+`docs/ui/` holds the design package — `design-direction.md`, `component-conventions.md`, `screens.md` — binding for any UI work, with [ADR-0009](docs/adr/0009-hand-rolled-css-tokens.md) recording the styling approach and `src/lib/styles/tokens.css` as the only place a raw colour or size appears.
