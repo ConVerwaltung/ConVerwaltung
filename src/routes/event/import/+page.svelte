@@ -17,7 +17,6 @@
 		missingMappedColumns,
 		shapeRows,
 		type ColumnTarget,
-		type ImportMapping,
 		type ShapedRow
 	} from '$lib/domain/import-mapping';
 	import { noteOf } from '$lib/domain/note';
@@ -138,7 +137,10 @@
 		return encoded === undefined || encoded === IGNORE;
 	}
 
-	function decodeDecisions(chosen: Record<number, string>): Map<number, ImportDecision> {
+	function decodeDecisions(chosen: Record<number, string>): ReadonlyMap<number, ImportDecision> {
+		// A plain value rebuilt by $derived whenever `choices` changes, not reactive state:
+		// the domain takes a ReadonlyMap and never mutates it.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const decided = new Map<number, ImportDecision>();
 		for (const [rowNumber, choice] of Object.entries(chosen)) {
 			if (choice === NEW_PERSON) {

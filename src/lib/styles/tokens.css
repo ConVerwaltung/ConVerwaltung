@@ -1,0 +1,78 @@
+/*
+	src/lib/styles/tokens.css — the only place a raw colour or size appears.
+
+	41 tokens, one semantic layer, no scale beneath. Decided in
+	.scratch/ui-design/0007-token-set.md (39) and extended by
+	.scratch/ui-design/0009-component-conventions.md §11 (--accent-hover, --scrim).
+
+	This file holds nothing but :root custom properties and the two data-theme
+	narrowings. src/lib/styles/base.css holds the reset, body defaults,
+	:focus-visible and link defaults. The split exists so tokens.test.ts can parse
+	this file off disk and mistake no rule for a value.
+
+	There is deliberately no @media (prefers-color-scheme) query anywhere in the
+	app: color-scheme plus light-dark() make the UA the single meeting point of the
+	OS setting and the organizer's override. See docs/ui/design-direction.md.
+*/
+:root {
+	color-scheme: light dark;
+
+	/* Grounds */
+	--paper: light-dark(#f1f2ee, #14181a); /* app ground */
+	--surface: light-dark(#fbfbf9, #1b2023); /* sheet, table, header band */
+	--raised: light-dark(#e8eae3, #232a2d); /* thead, quiet-button fill */
+	--inset: light-dark(#f7f8f3, #191f21); /* expanded detail row */
+	/* States */
+	--hover: light-dark(#f4f6f0, #202729);
+	--selected: light-dark(#dfeaef, #10333f); /* open row, active toggle */
+	--on-accent: light-dark(#fbfbf9, #0d2027); /* legal only on --accent, --accent-hover */
+	/* Ink */
+	--ink: light-dark(#14181b, #e7eae7);
+	--ink-mute: light-dark(#565d64, #9aa3a6);
+	/* Lines */
+	--rule: light-dark(#ccd1c8, #2f3739); /* decorative, no floor */
+	--rule-hard: light-dark(#9aa298, #47504f); /* decorative, no floor */
+	--control: light-dark(#778075, #748180); /* >= 3:1 on every ground */
+	/* Signals */
+	--accent: light-dark(#0f5470, #6fbcd8);
+	--accent-hover: light-dark(#0c4559, #8bcbe2); /* Primary button hover */
+	--danger: light-dark(#8b2130, #e8848d);
+	--focus: light-dark(#0f5470, #8ecfe6);
+	--scrim: light-dark(#14181b6b, #0507089e); /* dialog ::backdrop */
+
+	--font-body: 'Source Sans 3 Variable', system-ui, sans-serif;
+	--font-code: 'Inconsolata Variable', ui-monospace, monospace;
+	--track-label: 0.16em;
+	--track-code: 0.04em;
+	--track-wordmark: 0.22em;
+
+	--text-label: 0.625rem; /* 10px — uppercase labels */
+	--text-xs: 0.75rem; /* 12px — index, legend, sub-name, codes */
+	--text-sm: 0.8125rem; /* 13px — links, row actions, buttons */
+	--text-base: 0.875rem; /* 14px — body, values, inputs, wordmark */
+	--text-lg: 1.3125rem; /* 21px — figures */
+	--text-xl: 1.5625rem; /* 25px — page title */
+
+	--space-1: 0.125rem; /* 2px */
+	--space-2: 0.25rem; /* 4px */
+	--space-3: 0.375rem; /* 6px */
+	--space-4: 0.625rem; /* 10px */
+	--space-5: 1rem; /* 16px */
+	--space-6: 1.5rem; /* 24px */
+	--space-7: 2.5rem; /* 40px */
+	--space-8: 4rem; /* 64px */
+
+	--radius: 2px;
+	--row: 2.25rem; /* 36px — the density governor */
+	--frame-h: 3.25rem;
+	--sidebar-w: 12.5rem;
+	--sheet-max: 80rem;
+}
+
+/* An explicit override pins the scheme; prefers-color-scheme stops participating. */
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+:root[data-theme='dark'] {
+	color-scheme: dark;
+}

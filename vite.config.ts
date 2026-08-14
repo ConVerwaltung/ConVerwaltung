@@ -28,8 +28,11 @@ export default defineConfig({
 				short_name: 'AMTS',
 				description: 'Adaptives Teilnehmer-Management-System',
 				lang: 'de',
-				theme_color: '#1f2937',
-				background_color: '#ffffff',
+				// --surface and --paper, light. A manifest cannot be theme-aware
+					// (color_scheme_dark is unsupported and absent from the plugin's types), so a
+					// dark-mode organizer gets one light splash frame. Accepted; no mechanism exists.
+					theme_color: '#fbfbf9',
+				background_color: '#f1f2ee',
 				display: 'standalone',
 				scope: '/',
 				start_url: '/',
@@ -56,6 +59,17 @@ export default defineConfig({
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+				}
+			},
+			{
+				// Scoped a11y smoke tests only — the registers, the dialog, the Import
+				// decision group and the app frame. Not a snapshot suite over every component.
+				extends: './vite.config.ts',
+				test: {
+					name: 'client',
+					environment: 'jsdom',
+					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
+					setupFiles: ['./src/vitest-setup-client.ts']
 				}
 			}
 		]

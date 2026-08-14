@@ -4,7 +4,33 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
-		<meta name="theme-color" content="#1f2937" />
+
+		<!--
+			Applies the organizer's theme override before first paint. Mirror of applyTheme()
+			in src/lib/theme.svelte.ts — keep the two in sync.
+
+			No attribute means "system"; tokens.css resolves that via `color-scheme: light dark`
+			plus light-dark(), so the CSS needs no prefers-color-scheme query. ES5-safe on
+			purpose: this is template text, not a module Vite transpiles. The try/catch is a
+			requirement, not padding — localStorage *throws* when storage access is denied.
+		-->
+		<script>
+			try {
+				var amtsTheme = localStorage.getItem('amts.theme');
+				if (amtsTheme === 'light' || amtsTheme === 'dark') {
+					document.documentElement.setAttribute('data-theme', amtsTheme);
+				}
+			} catch (e) {
+				// Storage unavailable (blocked cookies, private mode). The system default holds.
+			}
+		</script>
+
+		<meta name="color-scheme" content="light dark" />
+		<!-- --surface in each theme. The one place this design permits a media query: a
+		     <meta> has no other mechanism. theme.svelte.ts rewrites both while an override
+		     is active, because these follow the OS rather than the override. -->
+		<meta name="theme-color" content="#fbfbf9" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#1b2023" media="(prefers-color-scheme: dark)" />
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
