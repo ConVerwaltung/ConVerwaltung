@@ -24,6 +24,18 @@ export function identityColumnsOf(columns: Readonly<Record<string, ColumnTarget>
 		.map(([column]) => column);
 }
 
+/**
+ * The identity columns the file has, in file order — the chain the Person name
+ * is joined from (`Vorname` + `Nachname`).
+ */
+export function identityChainOf(
+	columns: Readonly<Record<string, ColumnTarget>>,
+	fileColumns: readonly string[]
+): string[] {
+	const identityColumns = new Set(identityColumnsOf(columns));
+	return fileColumns.filter((column) => identityColumns.has(column));
+}
+
 export function isImportMappingNameDefined(
 	mappings: Record<string, ImportMapping>,
 	name: string
@@ -44,8 +56,8 @@ export function defineImportMapping(
 	if (isImportMappingNameDefined(mappings, trimmedName)) {
 		throw new Error('Import Mapping name is already defined');
 	}
-	if (identityColumnsOf(columns).length !== 1) {
-		throw new Error('Exactly one column must be the Person-identity column');
+	if (identityColumnsOf(columns).length === 0) {
+		throw new Error('At least one column must be a Person-identity column');
 	}
 	return { id: newRecordId(), name: trimmedName, columns };
 }
@@ -73,26 +85,46 @@ export interface ShapedRow {
 	readonly roleNames: readonly string[];
 }
 
+// Files split the name over as many columns as they like ("Vorname",
+// "Nachname"); the identity columns are joined in file order, so the reading
+// order of the file is the reading order of the name.
+function identityName(row: readonly string[], identityIndices: readonly number[]): string {
+	return identityIndices
+		.map((index) => (row[index] ?? '').trim())
+		.filter((part) => part !== '')
+		.join(' ');
+}
+
+function identityIndicesOf(
+	columns: Readonly<Record<string, ColumnTarget>>,
+	indexByColumn: ReadonlyMap<string, number>
+): number[] {
+	const identityColumns = new Set(identityColumnsOf(columns));
+	return [...indexByColumn]
+		.filter(([column]) => identityColumns.has(column))
+		.map(([, index]) => index);
+}
+
 function shapeRow(
 	row: readonly string[],
 	columns: Readonly<Record<string, ColumnTarget>>,
-	indexByColumn: ReadonlyMap<string, number>
+	indexByColumn: ReadonlyMap<string, number>,
+	identityIndices: readonly number[]
 ): ShapedRow {
-	let personName = '';
+	const personName = identityName(row, identityIndices);
 	const personValues: Record<string, string> = {};
 	const participantValues: Record<string, string> = {};
 	const roleNames: string[] = [];
 	for (const [column, target] of Object.entries(columns)) {
 		const index = indexByColumn.get(column);
-		if (index === undefined) {
+		if (index === undefined || target.kind === 'identity') {
 			continue;
 		}
 		const value = (row[index] ?? '').trim();
-		if (target.kind === 'identity') {
-			personName = value;
-		} else if (value === '') {
+		if (value === '') {
 			continue;
-		} else if (target.kind === 'personField') {
+		}
+		if (target.kind === 'personField') {
 			personValues[target.definitionId] = value;
 		} else if (target.kind === 'participantField') {
 			participantValues[target.fieldName] = value;
@@ -104,16 +136,17 @@ function shapeRow(
 }
 
 // The parse-phase output (ADR-0001): rows restated as their mapped targets,
-// nothing matched or committed. Mapped columns the file lacks are skipped,
-// except the identity column, without which rows cannot name a Person.
+// nothing matched or committed. Mapped columns the file lacks are skipped, but
+// at least one identity column must be there, without which rows cannot name a
+// Person.
 export function shapeRows(
 	table: CsvTable,
 	columns: Readonly<Record<string, ColumnTarget>>
 ): ShapedRow[] {
 	const indexByColumn = new Map(table.columns.map((column, index) => [column, index]));
-	const identityPresent = identityColumnsOf(columns).some((column) => indexByColumn.has(column));
-	if (!identityPresent) {
+	const identityIndices = identityIndicesOf(columns, indexByColumn);
+	if (identityIndices.length === 0) {
 		throw new Error('The Person-identity column is missing from the file');
 	}
-	return table.rows.map((row) => shapeRow(row, columns, indexByColumn));
+	return table.rows.map((row) => shapeRow(row, columns, indexByColumn, identityIndices));
 }

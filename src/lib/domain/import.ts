@@ -24,8 +24,10 @@ export interface ImportPlan {
 	readonly linkedPersons: readonly Person[];
 	readonly newParticipants: readonly Participant[];
 	readonly updatedParticipants: readonly Participant[];
-	/** Positions among the file's data rows, counted from 1. */
+	/** Rows the organizer decided to skip, counted from 1. */
 	readonly skippedRowNumbers: readonly number[];
+	/** Rows that name no Person and cannot be decided, counted from 1. */
+	readonly unnamedRowNumbers: readonly number[];
 	readonly unknownRoleNames: readonly string[];
 	readonly rejectedValues: readonly RejectedImportValue[];
 }
@@ -62,6 +64,7 @@ interface PlanDraft {
 	readonly newPersonIds: Set<string>;
 	readonly newParticipantIds: Set<string>;
 	readonly skippedRowNumbers: number[];
+	readonly unnamedRowNumbers: number[];
 	readonly unknownRoleNames: string[];
 	readonly rejectedValues: RejectedImportValue[];
 }
@@ -73,6 +76,7 @@ function emptyDraft(): PlanDraft {
 		newPersonIds: new Set(),
 		newParticipantIds: new Set(),
 		skippedRowNumbers: [],
+		unnamedRowNumbers: [],
 		unknownRoleNames: [],
 		rejectedValues: []
 	};
@@ -225,11 +229,17 @@ function planRow(
 	decision: ImportDecision | undefined
 ): void {
 	if (row.personName === '') {
-		draft.skippedRowNumbers.push(rowNumber);
+		draft.unnamedRowNumbers.push(rowNumber);
 		return;
 	}
 	if (decision === undefined) {
 		throw new Error(`Row ${rowNumber} is still undecided`);
+	}
+	// A skipped row writes nothing at all, so its values are never resolved and
+	// its Roles and unfitting values are not reported either.
+	if (decision.kind === 'skip') {
+		draft.skippedRowNumbers.push(rowNumber);
+		return;
 	}
 	const values = resolveRow(draft, targets, row, rowNumber);
 	if (decision.kind === 'new') {
@@ -252,6 +262,7 @@ function collectPlan(draft: PlanDraft): ImportPlan {
 			(participant) => !draft.newParticipantIds.has(participant.id)
 		),
 		skippedRowNumbers: draft.skippedRowNumbers,
+		unnamedRowNumbers: draft.unnamedRowNumbers,
 		unknownRoleNames: [...new Set(draft.unknownRoleNames)],
 		rejectedValues: draft.rejectedValues
 	};

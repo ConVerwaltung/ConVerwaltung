@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { proposeMatches, undecidedRowNumbers, type ImportDecision } from './import-match';
+import {
+	normalizedName,
+	proposeMatches,
+	undecidedRowNumbers,
+	type ImportDecision
+} from './import-match';
 import type { ShapedRow } from './import-mapping';
 import type { Person } from './person';
 
@@ -74,6 +79,62 @@ describe('proposeMatches', () => {
 	});
 });
 
+describe('proposeMatches on a file that repeats a name', () => {
+	it('flags the later row with the row it repeats, whatever the token order', () => {
+		const matches = proposeMatches({}, [
+			row('Maria Schmitt'),
+			row('Grace Hopper'),
+			row('Schmitt, Maria')
+		]);
+
+		expect(matches.map((match) => match.duplicateOfRowNumber)).toEqual([
+			undefined,
+			undefined,
+			1
+		]);
+	});
+
+	it('points every repetition at the first row carrying the name', () => {
+		const matches = proposeMatches({}, [
+			row('Maria Schmitt'),
+			row('maria schmitt'),
+			row('Maria Schmitt')
+		]);
+
+		expect(matches.map((match) => match.duplicateOfRowNumber)).toEqual([undefined, 1, 1]);
+	});
+
+	it('counts the rows the review skips, so the flag names the file row', () => {
+		const matches = proposeMatches({}, [row('Maria Schmitt'), row(''), row('Maria Schmitt')]);
+
+		expect(matches[1].rowNumber).toBe(3);
+		expect(matches[1].duplicateOfRowNumber).toBe(1);
+	});
+
+	it('treats names that only differ in transliteration as the same name', () => {
+		const matches = proposeMatches({}, [row('Thomas Müller'), row('Thomas Mueller')]);
+
+		expect(matches[1].duplicateOfRowNumber).toBe(1);
+	});
+
+	it('leaves merely similar names unflagged', () => {
+		const matches = proposeMatches({}, [row('Maria Schmitt'), row('Maria Schmidt')]);
+
+		expect(matches[1].duplicateOfRowNumber).toBeUndefined();
+	});
+});
+
+describe('normalizedName', () => {
+	it('is the same key for names differing in order, case or transliteration', () => {
+		expect(normalizedName('Schmitt, Maria')).toBe(normalizedName('maria schmitt'));
+		expect(normalizedName('Thomas Müller')).toBe(normalizedName('Thomas Mueller'));
+	});
+
+	it('keeps different names apart', () => {
+		expect(normalizedName('Maria Schmitt')).not.toBe(normalizedName('Maria Schmidt'));
+	});
+});
+
 describe('undecidedRowNumbers', () => {
 	it('reports the reviewed rows without a decision', () => {
 		const matches = proposeMatches(pool(mueller), [row('Thomas Mueller'), row('Grace Hopper')]);
@@ -85,6 +146,13 @@ describe('undecidedRowNumbers', () => {
 	it('reports nothing once every reviewed row is decided', () => {
 		const matches = proposeMatches(pool(mueller), [row('Thomas Mueller')]);
 		const decisions = new Map<number, ImportDecision>([[1, { kind: 'link', personId: mueller.id }]]);
+
+		expect(undecidedRowNumbers(matches, decisions)).toEqual([]);
+	});
+
+	it('counts a skipped row as decided', () => {
+		const matches = proposeMatches(pool(mueller), [row('Thomas Mueller')]);
+		const decisions = new Map<number, ImportDecision>([[1, { kind: 'skip' }]]);
 
 		expect(undecidedRowNumbers(matches, decisions)).toEqual([]);
 	});

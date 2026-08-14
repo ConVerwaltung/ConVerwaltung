@@ -3,6 +3,7 @@ import { validate as uuidValidate, version as uuidVersion } from 'uuid';
 import type { CsvTable } from './csv';
 import {
 	defineImportMapping,
+	identityChainOf,
 	identityColumnsOf,
 	isImportMappingNameDefined,
 	listImportMappingsByName,
@@ -49,13 +50,13 @@ describe('defineImportMapping', () => {
 		).toThrow();
 	});
 
-	it('rejects columns with more than one Person-identity column', () => {
-		expect(() =>
-			defineImportMapping({}, 'Anmeldeliste', {
-				Vorname: { kind: 'identity' },
-				Nachname: { kind: 'identity' }
-			})
-		).toThrow();
+	it('accepts several Person-identity columns', () => {
+		const columns: Readonly<Record<string, ColumnTarget>> = {
+			Vorname: { kind: 'identity' },
+			Nachname: { kind: 'identity' }
+		};
+
+		expect(defineImportMapping({}, 'Ticketliste', columns).columns).toEqual(columns);
 	});
 });
 
@@ -83,6 +84,25 @@ describe('identityColumnsOf', () => {
 	it('lists the columns targeting the Person identity', () => {
 		expect(identityColumnsOf(identityOnly)).toEqual(['Name']);
 		expect(identityColumnsOf({ Rolle: { kind: 'role' } })).toEqual([]);
+	});
+});
+
+describe('identityChainOf', () => {
+	const splitName: Readonly<Record<string, ColumnTarget>> = {
+		Nachname: { kind: 'identity' },
+		Vorname: { kind: 'identity' },
+		Rolle: { kind: 'role' }
+	};
+
+	it('lists the identity columns in file order, not in mapping order', () => {
+		expect(identityChainOf(splitName, ['Rolle', 'Vorname', 'Nachname'])).toEqual([
+			'Vorname',
+			'Nachname'
+		]);
+	});
+
+	it('leaves out identity columns the file does not have', () => {
+		expect(identityChainOf(splitName, ['Vorname', 'Rolle'])).toEqual(['Vorname']);
 	});
 });
 
@@ -164,6 +184,45 @@ describe('shapeRows', () => {
 		expect(shaped).toEqual([
 			{ personName: 'Ada', personValues: {}, participantValues: {}, roleNames: [] }
 		]);
+	});
+
+	it('joins several identity columns into one name, in file order', () => {
+		const splitName = mapping('a', 'Ticketliste', {
+			Nachname: { kind: 'identity' },
+			Vorname: { kind: 'identity' },
+			Rolle: { kind: 'role' }
+		});
+		const shaped = shapeRows(
+			{
+				columns: ['Vorname', 'Nachname', 'Rolle'],
+				rows: [
+					[' Ada ', 'Lovelace', 'Gast'],
+					['', 'Hopper', ''],
+					['Grace', '', '']
+				]
+			},
+			splitName.columns
+		);
+
+		expect(shaped.map((row) => row.personName)).toEqual(['Ada Lovelace', 'Hopper', 'Grace']);
+	});
+
+	it('names no Person when every identity column of the row is empty', () => {
+		const shaped = shapeRows(
+			{ columns: ['Vorname', 'Nachname'], rows: [['  ', '']] },
+			{ Vorname: { kind: 'identity' }, Nachname: { kind: 'identity' } }
+		);
+
+		expect(shaped[0].personName).toBe('');
+	});
+
+	it('reads the identity columns the file has when one is missing', () => {
+		const shaped = shapeRows(
+			{ columns: ['Vorname'], rows: [['Ada']] },
+			{ Vorname: { kind: 'identity' }, Nachname: { kind: 'identity' } }
+		);
+
+		expect(shaped[0].personName).toBe('Ada');
 	});
 
 	it('rejects a file without the Person-identity column', () => {

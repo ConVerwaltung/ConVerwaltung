@@ -59,7 +59,7 @@
 		isImportMappingNameDefined(libraryState.library.importMappings, mappingName)
 	);
 	const saveInvalid = $derived(
-		table === null || mappingName.trim() === '' || mappingNameTaken || identityCount !== 1
+		table === null || mappingName.trim() === '' || mappingNameTaken || identityCount === 0
 	);
 	const selectedMapping = $derived(libraryState.library.importMappings[selectedMappingId]);
 	const missingColumns = $derived(
@@ -181,7 +181,7 @@
 	}
 
 	function prepareMatching() {
-		if (table === null || identityCount !== 1) {
+		if (table === null || identityCount === 0) {
 			return;
 		}
 		const rows = shapeRows(table, draftColumns);
@@ -358,9 +358,9 @@
 				{/each}
 			</ul>
 			{#if identityCount === 0}
-				<p>Genau eine Spalte muss die Person-Identität (Name) sein.</p>
+				<p>Mindestens eine Spalte muss die Person-Identität (Name) sein.</p>
 			{:else if identityCount > 1}
-				<p>Nur eine Spalte darf die Person-Identität sein.</p>
+				<p>Der Name wird aus {identityCount} Spalten in Dateireihenfolge zusammengesetzt.</p>
 			{/if}
 
 			<form onsubmit={saveMapping}>
@@ -478,10 +478,11 @@
 					{importResult.linkedPersons.length} bestehende Personen verknüpft,
 					{importResult.newParticipants.length} Teilnehmer angelegt,
 					{importResult.updatedParticipants.length} Teilnehmer aktualisiert,
-					{importResult.skippedRowNumbers.length} Zeilen übersprungen.
+					{importResult.skippedRowNumbers.length + importResult.unnamedRowNumbers.length} Zeilen
+					übersprungen.
 				</p>
-				{#if importResult.skippedRowNumbers.length > 0}
-					<p>Ohne Namen, daher übersprungen — Zeilen: {importResult.skippedRowNumbers.join(', ')}</p>
+				{#if importResult.unnamedRowNumbers.length > 0}
+					<p>Ohne Namen, daher übersprungen — Zeilen: {importResult.unnamedRowNumbers.join(', ')}</p>
 				{/if}
 				{#if importResult.unknownRoleNames.length > 0}
 					<p>

@@ -41,7 +41,7 @@ _Avoid_: Upload, load, sync
 
 **Import Mapping**:
 _German_: Import-Zuordnung
-A reusable, named configuration describing how to interpret a source file: which column feeds which target (identity, Person field, Participant field, role) and which column identifies the Person. Defined once per file shape and reused across events.
+A reusable, named configuration describing how to interpret a source file: which column feeds which target (identity, Person field, Participant field, role) and which column or columns identify the Person — several identity columns (Vorname, Nachname) are joined in file order into one name. Defined once per file shape and reused across events.
 _Avoid_: Import profile, template, parser, schema, recipe
 
 **Export View**:

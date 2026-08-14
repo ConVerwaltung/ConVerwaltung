@@ -69,6 +69,7 @@ function row(overrides: Partial<ShapedRow> = {}): ShapedRow {
 }
 
 const asNewPerson: ImportDecision = { kind: 'new' };
+const skipped: ImportDecision = { kind: 'skip' };
 
 function linkedTo(personId: string): ImportDecision {
 	return { kind: 'link', personId };
@@ -319,7 +320,52 @@ describe('planImport row decisions', () => {
 
 		expect(plan.newPersons.map((person) => person.name)).toEqual(['Grace Hopper']);
 		expect(plan.newParticipants).toHaveLength(1);
-		expect(plan.skippedRowNumbers).toEqual([1, 3]);
+		expect(plan.unnamedRowNumbers).toEqual([1, 3]);
+		expect(plan.skippedRowNumbers).toEqual([]);
+	});
+
+	it('writes nothing for a skipped row and reports its position', () => {
+		const plan = planImport(
+			library(),
+			eventId,
+			[row({ personName: 'Ada Lovelace' }), row({ personName: 'Grace Hopper' })],
+			decisions(skipped, asNewPerson)
+		);
+
+		expect(plan.newPersons.map((person) => person.name)).toEqual(['Grace Hopper']);
+		expect(plan.newParticipants).toHaveLength(1);
+		expect(plan.skippedRowNumbers).toEqual([1]);
+		expect(plan.unnamedRowNumbers).toEqual([]);
+	});
+
+	it('reports neither unknown Roles nor unfitting values of a skipped row', () => {
+		const plan = planImport(
+			library(),
+			eventId,
+			[
+				row({
+					personValues: { [age.id]: 'sechsunddreißig' },
+					roleNames: ['Sponsorin']
+				})
+			],
+			decisions(skipped)
+		);
+
+		expect(plan.unknownRoleNames).toEqual([]);
+		expect(plan.rejectedValues).toEqual([]);
+	});
+
+	it('keeps a skipped row from updating the Person a second row links to', () => {
+		const withAda = library({ persons: personPool(ada) });
+		const plan = planImport(
+			withAda,
+			eventId,
+			[row({ personValues: { [age.id]: '36' } }), row({ roleNames: ['Gast'] })],
+			decisions(skipped, linkedTo(ada.id))
+		);
+
+		expect(plan.linkedPersons[0].customValues).toEqual({ [club.id]: 'SV Süd' });
+		expect(plan.newParticipants[0].roles).toEqual([guest.id]);
 	});
 
 	it('refuses to plan a named row that is still undecided', () => {
@@ -337,6 +383,7 @@ describe('planImport row decisions', () => {
 			newParticipants: [],
 			updatedParticipants: [],
 			skippedRowNumbers: [],
+			unnamedRowNumbers: [],
 			unknownRoleNames: [],
 			rejectedValues: []
 		});
