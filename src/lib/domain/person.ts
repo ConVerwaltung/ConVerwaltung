@@ -20,6 +20,12 @@ export function createPerson(name: string): Person {
 	return { id: newRecordId(), name: normalizePersonName(name) };
 }
 
+// No uniqueness check: two real people may share a name, and the interactive
+// fuzzy matching of an Import (ADR-0001) exists precisely to resolve that.
+export function renamePerson(person: Person, name: string): Person {
+	return { ...person, name: normalizePersonName(name) };
+}
+
 export function listPersonsByName(persons: Record<string, Person>): Person[] {
 	return Object.values(persons).sort((a, b) => a.name.localeCompare(b.name));
 }

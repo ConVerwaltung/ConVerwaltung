@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { validate as uuidValidate, version as uuidVersion } from 'uuid';
 import { createEmptyLibrary, type Library, type RecordKey } from './library';
-import { collectErasureDeletions, createPerson, listPersonsByName, type Person } from './person';
+import {
+	collectErasureDeletions,
+	createPerson,
+	listPersonsByName,
+	renamePerson,
+	type Person
+} from './person';
 
 describe('createPerson', () => {
 	it('creates a Person with the given name and a UUID v7 id', () => {
@@ -26,6 +32,61 @@ describe('createPerson', () => {
 		const second = createPerson('Ada Lovelace');
 
 		expect(first.id).not.toBe(second.id);
+	});
+});
+
+describe('renamePerson', () => {
+	it('replaces the name and keeps the id', () => {
+		const person = createPerson('Ada Byron');
+
+		const renamed = renamePerson(person, 'Ada Lovelace');
+
+		expect(renamed.name).toBe('Ada Lovelace');
+		expect(renamed.id).toBe(person.id);
+	});
+
+	it('keeps the Note and Custom Field values of the Person', () => {
+		const person: Person = {
+			id: 'ada',
+			name: 'Ada Byron',
+			note: 'Vegetarierin',
+			customValues: { cf1: 'ada@example.org' }
+		};
+
+		expect(renamePerson(person, 'Ada Lovelace')).toEqual({
+			id: 'ada',
+			name: 'Ada Lovelace',
+			note: 'Vegetarierin',
+			customValues: { cf1: 'ada@example.org' }
+		});
+	});
+
+	it('leaves the given Person untouched', () => {
+		const person = createPerson('Ada Byron');
+
+		renamePerson(person, 'Ada Lovelace');
+
+		expect(person.name).toBe('Ada Byron');
+	});
+
+	it('trims surrounding whitespace from the name', () => {
+		expect(renamePerson(createPerson('Ada Byron'), '  Ada Lovelace  ').name).toBe('Ada Lovelace');
+	});
+
+	it('rejects a blank name', () => {
+		const person = createPerson('Ada Byron');
+
+		expect(() => renamePerson(person, '')).toThrow();
+		expect(() => renamePerson(person, '   ')).toThrow();
+	});
+
+	// Two real people may share a name; the fuzzy matching of an Import (ADR-0001)
+	// is what resolves that, so the domain must not forbid it.
+	it('allows a name another Person already carries', () => {
+		const grace = createPerson('Grace Hopper');
+		const ada = createPerson('Ada Lovelace');
+
+		expect(renamePerson(ada, grace.name).name).toBe('Grace Hopper');
 	});
 });
 
