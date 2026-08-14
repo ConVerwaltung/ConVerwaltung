@@ -31,7 +31,8 @@
 		unassignRole,
 		type Role
 	} from '$lib/domain/role';
-	import { libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
+	import type { RecordPut } from '$lib/domain/library';
+	import { commitBatch, libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
 
 	let newPersonName = $state('');
 	let selectedPersonId = $state('');
@@ -118,9 +119,9 @@
 		if (copySourceEventId === '') {
 			return;
 		}
-		for (const role of copyRoles(libraryState.library.roles, copySourceEventId, event.id)) {
-			await upsertRecord('roles', role);
-		}
+		const copied = copyRoles(libraryState.library.roles, copySourceEventId, event.id);
+		const puts: RecordPut[] = copied.map((role) => ({ section: 'roles', record: role }));
+		await commitBatch({ puts });
 		copySourceEventId = '';
 	}
 
@@ -154,10 +155,11 @@
 		if (!confirmed) {
 			return;
 		}
-		for (const participant of unassignedParticipants) {
-			await upsertRecord('participants', participant);
-		}
-		await removeRecords(deletions);
+		const puts: RecordPut[] = unassignedParticipants.map((participant) => ({
+			section: 'participants',
+			record: participant
+		}));
+		await commitBatch({ puts, deletes: deletions });
 	}
 
 	async function toggleRole(participant: Participant, role: Role) {

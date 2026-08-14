@@ -34,6 +34,16 @@ export type LibrarySection = keyof Library;
 
 export type SectionRecord<S extends LibrarySection> = Library[S][string];
 
+// Mapped over the sections so a put always pairs a record with the section it belongs to.
+export type RecordPut = {
+	[S in LibrarySection]: { readonly section: S; readonly record: SectionRecord<S> };
+}[LibrarySection];
+
+export interface WriteBatch {
+	readonly puts?: readonly RecordPut[];
+	readonly deletes?: readonly RecordKey[];
+}
+
 export const librarySections: readonly LibrarySection[] = [
 	'events',
 	'persons',

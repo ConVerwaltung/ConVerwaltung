@@ -19,7 +19,8 @@
 		type CustomFieldType,
 		type CustomValuedRecord
 	} from '$lib/domain/custom-field';
-	import { libraryState, removeRecords, upsertRecord } from '$lib/library.svelte';
+	import type { RecordPut } from '$lib/domain/library';
+	import { commitBatch, libraryState, upsertRecord } from '$lib/library.svelte';
 
 	interface Props {
 		level: CustomFieldLevel;
@@ -164,19 +165,21 @@
 				libraryState.library.persons,
 				definition.id
 			);
-			for (const person of clearedRecords) {
-				await upsertRecord('persons', person);
-			}
-			await removeRecords(deletions);
+			const puts: RecordPut[] = clearedRecords.map((person) => ({
+				section: 'persons',
+				record: person
+			}));
+			await commitBatch({ puts, deletes: deletions });
 		} else {
 			const { deletions, clearedRecords } = removeCustomFieldDefinition(
 				libraryState.library.participants,
 				definition.id
 			);
-			for (const participant of clearedRecords) {
-				await upsertRecord('participants', participant);
-			}
-			await removeRecords(deletions);
+			const puts: RecordPut[] = clearedRecords.map((participant) => ({
+				section: 'participants',
+				record: participant
+			}));
+			await commitBatch({ puts, deletes: deletions });
 		}
 	}
 </script>

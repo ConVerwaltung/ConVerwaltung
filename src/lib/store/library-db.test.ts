@@ -1,16 +1,29 @@
 import 'fake-indexeddb/auto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { CustomFieldDefinition } from '$lib/domain/custom-field';
-import { createEmptyLibrary } from '$lib/domain/library';
+import {
+	createEmptyLibrary,
+	type LibrarySection,
+	type RecordPut,
+	type SectionRecord
+} from '$lib/domain/library';
 import { createEvent } from '$lib/domain/event';
 import { newRecordId } from '$lib/domain/ids';
-import { collectErasureDeletions } from '$lib/domain/person';
-import { deleteRecords, loadLibrary, openLibraryDb, putRecord } from './library-db';
+import { collectErasureDeletions, type Person } from '$lib/domain/person';
+import { loadLibrary, openLibraryDb, writeBatch, type LibraryDb } from './library-db';
 
 // Unique DB name per test so fake-indexeddb state does not leak between tests.
 let dbCounter = 0;
 function uniqueDbName(): string {
 	return `amts-library-test-${dbCounter++}`;
+}
+
+async function putRecord<S extends LibrarySection>(
+	db: LibraryDb,
+	section: S,
+	record: SectionRecord<S>
+): Promise<void> {
+	await writeBatch(db, { puts: [{ section, record } as RecordPut] });
 }
 
 describe('library store', () => {
@@ -116,7 +129,7 @@ describe('library store', () => {
 		reopened.close();
 	});
 
-	it('deleteRecords removes the given records across sections, others survive reload', async () => {
+	it('writeBatch removes the given records across sections, others survive reload', async () => {
 		const dbName = uniqueDbName();
 		const event = createEvent('Sommerfest 2026');
 		const doomedParticipant = { id: newRecordId(), event: event.id, person: 'ada', roles: [] };
@@ -128,10 +141,12 @@ describe('library store', () => {
 		await putRecord(db, 'participants', doomedParticipant);
 		await putRecord(db, 'participants', otherParticipant);
 		await putRecord(db, 'persons', person);
-		await deleteRecords(db, [
-			{ section: 'events', id: event.id },
-			{ section: 'participants', id: doomedParticipant.id }
-		]);
+		await writeBatch(db, {
+			deletes: [
+				{ section: 'events', id: event.id },
+				{ section: 'participants', id: doomedParticipant.id }
+			]
+		});
 		db.close();
 
 		const reopened = await openLibraryDb(dbName);
@@ -139,6 +154,62 @@ describe('library store', () => {
 
 		const expected = createEmptyLibrary();
 		expected.participants[otherParticipant.id] = otherParticipant;
+		expected.persons[person.id] = person;
+		expect(library).toEqual(expected);
+		reopened.close();
+	});
+
+	it('writeBatch applies puts and deletes of one cascade together', async () => {
+		const dbName = uniqueDbName();
+		const role = { id: newRecordId(), event: newRecordId(), name: 'Gast' };
+		const holder = { id: newRecordId(), event: role.event, person: 'ada', roles: [role.id] };
+
+		const db = await openLibraryDb(dbName);
+		await putRecord(db, 'roles', role);
+		await putRecord(db, 'participants', holder);
+
+		const stripped = { ...holder, roles: [] };
+		await writeBatch(db, {
+			puts: [{ section: 'participants', record: stripped }],
+			deletes: [{ section: 'roles', id: role.id }]
+		});
+		db.close();
+
+		const reopened = await openLibraryDb(dbName);
+		const library = await loadLibrary(reopened);
+
+		expect(library.roles).toEqual({});
+		expect(library.participants[holder.id]).toEqual(stripped);
+		reopened.close();
+	});
+
+	it('a writeBatch that fails partway applies nothing', async () => {
+		const dbName = uniqueDbName();
+		const event = createEvent('Sommerfest 2026');
+		const person = { id: newRecordId(), name: 'Ada Lovelace' };
+		const uncloneable = {
+			id: newRecordId(),
+			name: 'Grace Hopper',
+			greet: () => 'hallo'
+		} as unknown as Person;
+
+		const db = await openLibraryDb(dbName);
+		await putRecord(db, 'persons', person);
+
+		const doomed = writeBatch(db, {
+			puts: [
+				{ section: 'events', record: event },
+				{ section: 'persons', record: uncloneable }
+			],
+			deletes: [{ section: 'persons', id: person.id }]
+		});
+		await expect(doomed).rejects.toThrow();
+		db.close();
+
+		const reopened = await openLibraryDb(dbName);
+		const library = await loadLibrary(reopened);
+
+		const expected = createEmptyLibrary();
 		expected.persons[person.id] = person;
 		expect(library).toEqual(expected);
 		reopened.close();
@@ -207,7 +278,10 @@ describe('library store', () => {
 			[adaAtAutumnFest.id]: adaAtAutumnFest,
 			[graceAtSummerFest.id]: graceAtSummerFest
 		};
-		await deleteRecords(db, collectErasureDeletions(participants, ada.id));
+		const transactions = vi.spyOn(IDBDatabase.prototype, 'transaction');
+		await writeBatch(db, { deletes: collectErasureDeletions(participants, ada.id) });
+		expect(transactions).toHaveBeenCalledTimes(1);
+		transactions.mockRestore();
 		db.close();
 
 		const reopened = await openLibraryDb(dbName);
@@ -232,10 +306,10 @@ describe('library store', () => {
 		reopened.close();
 	});
 
-	it('deleteRecords with no keys is a no-op', async () => {
+	it('an empty writeBatch is a no-op', async () => {
 		const db = await openLibraryDb(uniqueDbName());
 
-		await expect(deleteRecords(db, [])).resolves.toBeUndefined();
+		await expect(writeBatch(db, {})).resolves.toBeUndefined();
 		db.close();
 	});
 });

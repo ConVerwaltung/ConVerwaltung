@@ -21,7 +21,8 @@
 	} from '$lib/domain/import-mapping';
 	import { noteOf } from '$lib/domain/note';
 	import type { Person } from '$lib/domain/person';
-	import { libraryState, upsertRecord } from '$lib/library.svelte';
+	import type { RecordPut } from '$lib/domain/library';
+	import { commitBatch, libraryState, upsertRecord } from '$lib/library.svelte';
 
 	const IGNORE = 'ignore';
 	const PREVIEW_ROW_LIMIT = 50;
@@ -275,12 +276,15 @@
 		}
 		importing = true;
 		const plan = planImport(libraryState.library, event.id, shapedRows, decisions);
-		for (const person of [...plan.newPersons, ...plan.linkedPersons]) {
-			await upsertRecord('persons', person);
-		}
-		for (const participant of [...plan.newParticipants, ...plan.updatedParticipants]) {
-			await upsertRecord('participants', participant);
-		}
+		const personPuts: RecordPut[] = [...plan.newPersons, ...plan.linkedPersons].map((person) => ({
+			section: 'persons',
+			record: person
+		}));
+		const participantPuts: RecordPut[] = [
+			...plan.newParticipants,
+			...plan.updatedParticipants
+		].map((participant) => ({ section: 'participants', record: participant }));
+		await commitBatch({ puts: [...personPuts, ...participantPuts] });
 		importResult = plan;
 		importing = false;
 	}

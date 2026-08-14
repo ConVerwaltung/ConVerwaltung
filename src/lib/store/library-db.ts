@@ -4,8 +4,8 @@ import {
 	librarySections,
 	type Library,
 	type LibrarySection,
-	type RecordKey,
-	type SectionRecord
+	type SectionRecord,
+	type WriteBatch
 } from '$lib/domain/library';
 
 type LibraryDbSchema = {
@@ -41,23 +41,33 @@ export async function loadLibrary(db: LibraryDb): Promise<Library> {
 	return library;
 }
 
-/** `record` must be a plain object, not a `$state` proxy. */
-export async function putRecord<S extends LibrarySection>(
+/** Records must be plain objects, not `$state` proxies. */
+export async function writeBatch(
 	db: LibraryDb,
-	section: S,
-	record: SectionRecord<S>
+	{ puts = [], deletes = [] }: WriteBatch
 ): Promise<void> {
-	await db.put(section, record);
-}
-
-export async function deleteRecords(db: LibraryDb, keys: readonly RecordKey[]): Promise<void> {
-	if (keys.length === 0) {
+	if (puts.length === 0 && deletes.length === 0) {
 		return;
 	}
-	const sections = [...new Set(keys.map((key) => key.section))];
+	const putSections = puts.map((put) => put.section);
+	const deleteSections = deletes.map((key) => key.section);
+	const sections = [...new Set([...putSections, ...deleteSections])];
 	const tx = db.transaction(sections, 'readwrite');
-	for (const { section, id } of keys) {
-		void tx.objectStore(section).delete(id);
+	const requests: Promise<unknown>[] = [];
+	try {
+		for (const { section, record } of puts) {
+			requests.push(tx.objectStore(section).put(record));
+		}
+		for (const { section, id } of deletes) {
+			requests.push(tx.objectStore(section).delete(id));
+		}
+	} catch (error) {
+		// A request that throws synchronously — an invalid key, an uncloneable value —
+		// would otherwise leave the preceding ones to commit on their own. Aborting
+		// rejects them all, which is what the settle below collects.
+		tx.abort();
+		await Promise.allSettled([...requests, tx.done]);
+		throw error;
 	}
-	await tx.done;
+	await Promise.all([...requests, tx.done]);
 }
