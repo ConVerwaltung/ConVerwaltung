@@ -99,104 +99,97 @@
 	<title>Stammdaten – AMTS</title>
 </svelte:head>
 
-{#if libraryState.status === 'loading'}
-	<p>Bibliothek wird geladen …</p>
-{:else if libraryState.status === 'error'}
-	<p>Bibliothek konnte nicht geladen werden.</p>
-{:else}
-	<section>
-		<h2>Personen-Pool</h2>
-		<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
+<section>
+	<h1>Personen-Pool</h1>
+	<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
 
-		<CustomFieldManager level="person" />
+	<CustomFieldManager level="person" />
 
-		<ExportViewManager level="person" />
+	<ExportViewManager level="person" />
 
-		<h3>Personen</h3>
-		{#if persons.length === 0}
-			<p>Noch keine Personen.</p>
-		{:else}
-			<ul>
-				{#each persons as person (person.id)}
-					<li>
-						{person.name}
-						{#each personFields as field (field.id)}
-							<CustomValueInput
-								definition={field}
-								value={customValueOf(person, field.id)}
-								onsave={(value) => saveValue(person, field, value)}
-							/>
-						{/each}
-						{#if noteEditPersonId === person.id}
-							<form onsubmit={(submitEvent) => submitNote(submitEvent, person)}>
+	<h2>Personen</h2>
+	{#if persons.length === 0}
+		<p>Noch keine Personen.</p>
+	{:else}
+		<ul>
+			{#each persons as person (person.id)}
+				<li>
+					{person.name}
+					{#each personFields as field (field.id)}
+						<CustomValueInput
+							definition={field}
+							value={customValueOf(person, field.id)}
+							onsave={(value) => saveValue(person, field, value)}
+						/>
+					{/each}
+					{#if noteEditPersonId === person.id}
+						<form onsubmit={(submitEvent) => submitNote(submitEvent, person)}>
+							<!-- svelte-ignore a11y_autofocus -->
+							<textarea bind:value={noteDraft} rows="4" autofocus></textarea>
+							<button type="submit">Speichern</button>
+							<button type="button" onclick={() => (noteEditPersonId = null)}>Abbrechen</button>
+						</form>
+					{:else}
+						<button type="button" onclick={() => startNoteEdit(person)}>Notiz bearbeiten</button>
+						{#if noteOf(person) !== ''}
+							<p class="note">{noteOf(person)}</p>
+						{/if}
+					{/if}
+					{#if erasureCandidateId === person.id}
+						<form
+							class="erasure"
+							onsubmit={(submitEvent) => submitErasure(submitEvent, person)}
+						>
+							<p>
+								<strong>Löschung:</strong> „{person.name}“ wird vollständig und unwiderruflich
+								entfernt — die Person selbst sowie alle ihre Teilnehmer-Daten, Notizen und Werte
+								benutzerdefinierter Felder ({erasureScopeText}). Anders als beim Entfernen eines
+								Teilnehmers bleibt nichts erhalten.
+							</p>
+							<label>
+								Zur Bestätigung den Namen eingeben
 								<!-- svelte-ignore a11y_autofocus -->
-								<textarea bind:value={noteDraft} rows="4" autofocus></textarea>
-								<button type="submit">Speichern</button>
-								<button type="button" onclick={() => (noteEditPersonId = null)}>Abbrechen</button>
-							</form>
-						{:else}
-							<button type="button" onclick={() => startNoteEdit(person)}>Notiz bearbeiten</button>
-							{#if noteOf(person) !== ''}
-								<p class="note">{noteOf(person)}</p>
-							{/if}
-						{/if}
-						{#if erasureCandidateId === person.id}
-							<form
-								class="erasure"
-								onsubmit={(submitEvent) => submitErasure(submitEvent, person)}
-							>
-								<p>
-									<strong>Löschung:</strong> „{person.name}“ wird vollständig und unwiderruflich
-									entfernt — die Person selbst sowie alle ihre Teilnehmer-Daten, Notizen und Werte
-									benutzerdefinierter Felder ({erasureScopeText}). Anders als beim Entfernen eines
-									Teilnehmers bleibt nichts erhalten.
-								</p>
-								<label>
-									Zur Bestätigung den Namen eingeben
-									<!-- svelte-ignore a11y_autofocus -->
-									<input type="text" bind:value={erasureNameDraft} autofocus />
-								</label>
-								<button type="submit" disabled={erasureNameDraft.trim() !== person.name}>
-									Person unwiderruflich löschen
-								</button>
-								<button type="button" onclick={() => (erasureCandidateId = null)}>
-									Abbrechen
-								</button>
-							</form>
-						{:else}
-							<button type="button" onclick={() => startErasure(person)}>Löschung …</button>
-						{/if}
-					</li>
-				{/each}
-			</ul>
+								<input type="text" bind:value={erasureNameDraft} autofocus />
+							</label>
+							<button type="submit" disabled={erasureNameDraft.trim() !== person.name}>
+								Person unwiderruflich löschen
+							</button>
+							<button type="button" onclick={() => (erasureCandidateId = null)}>
+								Abbrechen
+							</button>
+						</form>
+					{:else}
+						<button type="button" onclick={() => startErasure(person)}>Löschung …</button>
+					{/if}
+				</li>
+			{/each}
+		</ul>
 
-			<form onsubmit={addToEvent}>
-				<label>
-					Person
-					<select bind:value={selectedPersonId} onchange={() => (selectedEventId = '')}>
-						<option value="" disabled>Person wählen …</option>
-						{#each persons as person (person.id)}
-							<option value={person.id}>{person.name}</option>
-						{/each}
-					</select>
-				</label>
-				<label>
-					Veranstaltung
-					<select bind:value={selectedEventId} disabled={selectedPersonId === ''}>
-						<option value="" disabled>Veranstaltung wählen …</option>
-						{#each addableEvents as event (event.id)}
-							<option value={event.id}>{event.name}</option>
-						{/each}
-					</select>
-				</label>
-				<button type="submit" disabled={selectedPersonId === '' || selectedEventId === ''}>
-					Als Teilnehmer hinzufügen
-				</button>
-			</form>
-		{/if}
-	</section>
-{/if}
-
+		<form onsubmit={addToEvent}>
+			<label>
+				Person
+				<select bind:value={selectedPersonId} onchange={() => (selectedEventId = '')}>
+					<option value="" disabled>Person wählen …</option>
+					{#each persons as person (person.id)}
+						<option value={person.id}>{person.name}</option>
+					{/each}
+				</select>
+			</label>
+			<label>
+				Veranstaltung
+				<select bind:value={selectedEventId} disabled={selectedPersonId === ''}>
+					<option value="" disabled>Veranstaltung wählen …</option>
+					{#each addableEvents as event (event.id)}
+						<option value={event.id}>{event.name}</option>
+					{/each}
+				</select>
+			</label>
+			<button type="submit" disabled={selectedPersonId === '' || selectedEventId === ''}>
+				Als Teilnehmer hinzufügen
+			</button>
+		</form>
+	{/if}
+</section>
 <style>
 	.note {
 		white-space: pre-line;

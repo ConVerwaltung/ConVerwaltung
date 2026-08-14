@@ -45,11 +45,9 @@
 
 	const event = $derived(libraryState.library.events[page.params.id ?? '']);
 	const pageTitle = $derived(
-		libraryState.status !== 'ready'
-			? 'AMTS'
-			: event === undefined
-				? 'Veranstaltung nicht gefunden – AMTS'
-				: `Teilnehmer – ${event.name} – AMTS`
+		event === undefined
+			? 'Veranstaltung nicht gefunden – AMTS'
+			: `Teilnehmer – ${event.name} – AMTS`
 	);
 	const participants = $derived(
 		event === undefined ? [] : listParticipants(libraryState.library.participants, event.id)
@@ -217,21 +215,17 @@
 	<title>{pageTitle}</title>
 </svelte:head>
 
-{#if libraryState.status === 'loading'}
-	<p>Bibliothek wird geladen …</p>
-{:else if libraryState.status === 'error'}
-	<p>Bibliothek konnte nicht geladen werden.</p>
-{:else if event === undefined}
+{#if event === undefined}
 	<p>Veranstaltung nicht gefunden.</p>
 	<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
 {:else}
 	<section>
-		<h2>{event.name}</h2>
+		<h1>{event.name}</h1>
 		<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
 		<p><a href={resolve('/event/[id]/import', { id: event.id })}>Import</a></p>
 		<p><a href={resolve('/event/[id]/export', { id: event.id })}>Export</a></p>
 
-		<h3>Rollen</h3>
+		<h2>Rollen</h2>
 		{#if roles.length === 0}
 			<p>Noch keine Rollen definiert.</p>
 		{:else}
@@ -291,7 +285,7 @@
 
 		<CustomFieldManager level="participant" eventId={event.id} />
 
-		<h3>Teilnehmer</h3>
+		<h2>Teilnehmer</h2>
 		{#if participants.length === 0}
 			<p>Noch keine Teilnehmer.</p>
 		{:else}

@@ -5,39 +5,51 @@
 	import '$lib/styles/base.css';
 
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import favicon from '$lib/assets/favicon.svg';
-	import { bootLibrary } from '$lib/library.svelte';
+	import AppHeader from '$lib/components/AppHeader.svelte';
+	import BootGate from '$lib/components/BootGate.svelte';
+	import FrameBanner from '$lib/components/FrameBanner.svelte';
+	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { noteUpdateWaiting, openEvent } from '$lib/frame.svelte';
+	import { bootLibrary, libraryState } from '$lib/library.svelte';
 	import { bootTheme } from '$lib/theme.svelte';
 
 	let { children } = $props();
 
-	// The service worker waits instead of taking over silently, so an update never discards
-	// work in progress. The banner this drives is frame work; this is the wiring only.
-	let updateWaiting = $state(false);
-	// Takes no argument: it tells the waiting worker to skip waiting, and the reload follows
-	// from the resulting `controlling` event.
-	let applyUpdate = $state<(() => Promise<void>) | undefined>(undefined);
-
 	const webManifestLink = pwaInfo ? pwaInfo.webManifest.linkTag : '';
+
+	// The service worker waits instead of taking over silently, so an update never discards
+	// work in progress; the banner offers the reload once it is waiting.
+	async function registerServiceWorker(): Promise<void> {
+		if (!pwaInfo) {
+			return;
+		}
+		const { registerSW } = await import('virtual:pwa-register');
+		// On load only: the app is opened a handful of times a year and is frequently
+		// offline mid-event, so an update found after boot arrives at the next boot.
+		const applyUpdate = registerSW({
+			immediate: true,
+			onNeedRefresh: () => noteUpdateWaiting(applyUpdate),
+			onRegisterError: (error) => {
+				console.error('Service Worker konnte nicht registriert werden.', error);
+			}
+		});
+	}
 
 	onMount(async () => {
 		bootTheme();
-		if (pwaInfo) {
-			const { registerSW } = await import('virtual:pwa-register');
-			// On load only: the app is opened a handful of times a year and is frequently
-			// offline mid-event, so an update found after boot arrives at the next boot.
-			applyUpdate = registerSW({
-				immediate: true,
-				onNeedRefresh: () => {
-					updateWaiting = true;
-				},
-				onRegisterError: (error) => {
-					console.error('Service Worker konnte nicht registriert werden.', error);
-				}
-			});
-		}
+		await registerServiceWorker();
 		await bootLibrary();
+	});
+
+	// The sidebar keeps the last-opened Veranstaltung after leaving it, for this session only.
+	$effect(() => {
+		const eventId = page.params.id ?? '';
+		if (page.route.id?.startsWith('/event/[id]') && eventId !== '') {
+			openEvent(eventId);
+		}
 	});
 </script>
 
@@ -45,18 +57,30 @@
 	<link rel="icon" href={favicon} />
 	<!-- eslint-disable-next-line svelte/no-at-html-tags — build-time constant from vite-plugin-pwa, not user input -->
 	{@html webManifestLink}
+	<!-- Each screen sets its own title; until one renders there is only the app's name. -->
+	{#if libraryState.status !== 'ready'}
+		<title>AMTS</title>
+	{/if}
 </svelte:head>
 
-<header>
-	<h1>AMTS</h1>
-	{#if updateWaiting}
-		<p>
-			Neue Version verfügbar
-			<button type="button" onclick={() => applyUpdate?.()}>Neu laden</button>
-		</p>
-	{/if}
-</header>
+<AppHeader />
+<Sidebar />
 
-<main>
-	{@render children()}
-</main>
+<div class="content">
+	<FrameBanner />
+	<main id="inhalt" tabindex="-1">
+		<BootGate>{@render children()}</BootGate>
+	</main>
+</div>
+
+<style>
+	.content {
+		margin-top: var(--frame-h);
+		margin-left: var(--sidebar-w);
+	}
+
+	main {
+		max-width: var(--sheet-max);
+		padding: var(--space-6) var(--space-6) var(--space-8);
+	}
+</style>

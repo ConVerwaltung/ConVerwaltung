@@ -81,6 +81,9 @@ export default defineConfig({
 				// Scoped a11y smoke tests only — the registers, the dialog, the Import
 				// decision group and the app frame. Not a snapshot suite over every component.
 				extends: './vite.config.ts',
+				// Without the browser condition Svelte resolves to its server build, where
+				// mounting a component throws instead of producing DOM to check.
+				resolve: { conditions: ['browser'] },
 				test: {
 					name: 'client',
 					environment: 'jsdom',

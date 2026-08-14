@@ -213,7 +213,7 @@
 	}
 </script>
 
-<h3>Export-Ansichten</h3>
+<h2>Export-Ansichten</h2>
 {#if level === 'participant'}
 	<p>Diese Export-Ansichten erfassen die Teilnehmer dieser Veranstaltung.</p>
 {:else}
@@ -248,7 +248,7 @@
 {/if}
 
 <form onsubmit={saveView}>
-	<h4>Neue Export-Ansicht</h4>
+	<h3>Neue Export-Ansicht</h3>
 	<label>
 		Name
 		<input type="text" bind:value={viewName} required />

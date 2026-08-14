@@ -54,44 +54,38 @@
 	<title>Veranstaltungen – AMTS</title>
 </svelte:head>
 
-{#if libraryState.status === 'loading'}
-	<p>Bibliothek wird geladen …</p>
-{:else if libraryState.status === 'error'}
-	<p>Bibliothek konnte nicht geladen werden.</p>
-{:else}
-	<section>
-		<h2>Veranstaltungen</h2>
-		<p><a href={resolve('/stammdaten')}>Personen-Pool</a></p>
+<section>
+	<h1>Veranstaltungen</h1>
+	<p><a href={resolve('/stammdaten')}>Personen-Pool</a></p>
 
-		<form onsubmit={addEvent}>
-			<label>
-				Name
-				<input type="text" bind:value={eventName} required />
-			</label>
-			<button type="submit" disabled={eventName.trim() === ''}>Veranstaltung anlegen</button>
-		</form>
+	<form onsubmit={addEvent}>
+		<label>
+			Name
+			<input type="text" bind:value={eventName} required />
+		</label>
+		<button type="submit" disabled={eventName.trim() === ''}>Veranstaltung anlegen</button>
+	</form>
 
-		{#if events.length === 0}
-			<p>Noch keine Veranstaltungen.</p>
-		{:else}
-			<ul>
-				{#each events as event (event.id)}
-					<li>
-						{#if renamingEventId === event.id}
-							<form onsubmit={(submitEvent) => submitRename(submitEvent, event)}>
-								<!-- svelte-ignore a11y_autofocus -->
-								<input type="text" bind:value={renameDraft} required autofocus />
-								<button type="submit" disabled={renameDraft.trim() === ''}>Speichern</button>
-								<button type="button" onclick={() => (renamingEventId = null)}>Abbrechen</button>
-							</form>
-						{:else}
-							<a href={resolve('/event/[id]/teilnehmer', { id: event.id })}>{event.name}</a>
-							<button type="button" onclick={() => startRename(event)}>Umbenennen</button>
-							<button type="button" onclick={() => deleteEvent(event)}>Löschen</button>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
-{/if}
+	{#if events.length === 0}
+		<p>Noch keine Veranstaltungen.</p>
+	{:else}
+		<ul>
+			{#each events as event (event.id)}
+				<li>
+					{#if renamingEventId === event.id}
+						<form onsubmit={(submitEvent) => submitRename(submitEvent, event)}>
+							<!-- svelte-ignore a11y_autofocus -->
+							<input type="text" bind:value={renameDraft} required autofocus />
+							<button type="submit" disabled={renameDraft.trim() === ''}>Speichern</button>
+							<button type="button" onclick={() => (renamingEventId = null)}>Abbrechen</button>
+						</form>
+					{:else}
+						<a href={resolve('/event/[id]/teilnehmer', { id: event.id })}>{event.name}</a>
+						<button type="button" onclick={() => startRename(event)}>Umbenennen</button>
+						<button type="button" onclick={() => deleteEvent(event)}>Löschen</button>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</section>

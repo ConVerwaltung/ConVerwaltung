@@ -10,24 +10,38 @@ import { loadLibrary, openLibraryDb, writeBatch, type LibraryDb } from '$lib/sto
 
 export type LibraryStatus = 'loading' | 'ready' | 'error';
 
+export interface BootFailure {
+	blocked: boolean;
+	detail: string;
+}
+
 export const libraryState = $state({
 	status: 'loading' as LibraryStatus,
 	library: createEmptyLibrary(),
-	writeFailure: null as string | null
+	writeFailure: null as string | null,
+	bootFailure: null as BootFailure | null
 });
 
 let db: LibraryDb | undefined;
 
-/** Call once, in the browser. */
+/** Call in the browser; `Erneut versuchen` calls it again, because a boot failure is often transient. */
 export async function bootLibrary(): Promise<void> {
+	libraryState.status = 'loading';
+	libraryState.bootFailure = null;
 	try {
-		db = await openLibraryDb();
+		db = await openLibraryDb(undefined, reportBlockedUpgrade);
 		libraryState.library = await loadLibrary(db);
+		libraryState.bootFailure = null;
 		libraryState.status = 'ready';
 	} catch (error) {
+		libraryState.bootFailure = { blocked: false, detail: describeFailure(error) };
 		libraryState.status = 'error';
-		throw error;
 	}
+}
+
+function reportBlockedUpgrade(): void {
+	libraryState.bootFailure = { blocked: true, detail: '' };
+	libraryState.status = 'error';
 }
 
 /** Persists first, so a failed write leaves the in-memory Library untouched. */

@@ -6,11 +6,9 @@
 
 	const event = $derived(libraryState.library.events[page.params.id ?? '']);
 	const pageTitle = $derived(
-		libraryState.status !== 'ready'
-			? 'AMTS'
-			: event === undefined
-				? 'Veranstaltung nicht gefunden – AMTS'
-				: `Export – ${event.name} – AMTS`
+		event === undefined
+			? 'Veranstaltung nicht gefunden – AMTS'
+			: `Export – ${event.name} – AMTS`
 	);
 </script>
 
@@ -18,16 +16,12 @@
 	<title>{pageTitle}</title>
 </svelte:head>
 
-{#if libraryState.status === 'loading'}
-	<p>Bibliothek wird geladen …</p>
-{:else if libraryState.status === 'error'}
-	<p>Bibliothek konnte nicht geladen werden.</p>
-{:else if event === undefined}
+{#if event === undefined}
 	<p>Veranstaltung nicht gefunden.</p>
 	<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
 {:else}
 	<section>
-		<h2>Export — {event.name}</h2>
+		<h1>Export — {event.name}</h1>
 		<p>
 			<a href={resolve('/event/[id]/teilnehmer', { id: event.id })}>Zurück zur Veranstaltung</a>
 		</p>

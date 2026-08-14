@@ -184,7 +184,7 @@
 	}
 </script>
 
-<h3>Benutzerdefinierte Felder</h3>
+<h2>Benutzerdefinierte Felder</h2>
 {#if level === 'participant'}
 	<p>Diese Felder gelten nur für Teilnehmer dieser Veranstaltung.</p>
 {/if}

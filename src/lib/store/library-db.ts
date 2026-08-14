@@ -19,7 +19,14 @@ const DB_NAME = 'amts-library';
 // section only needs this version raised.
 const DB_VERSION = 3;
 
-export async function openLibraryDb(name: string = DB_NAME): Promise<LibraryDb> {
+// `blocked` fires when another tab holds an older version: the open neither resolves nor
+// rejects until that tab closes, so the wait has to be reported rather than awaited.
+// `blocking` stays unhandled on purpose — closing this session's connection to let another
+// tab upgrade would break every write it still owes.
+export async function openLibraryDb(
+	name: string = DB_NAME,
+	onBlocked?: () => void
+): Promise<LibraryDb> {
 	return openDB<LibraryDbSchema>(name, DB_VERSION, {
 		upgrade(db) {
 			for (const section of librarySections) {
@@ -27,7 +34,8 @@ export async function openLibraryDb(name: string = DB_NAME): Promise<LibraryDb> 
 					db.createObjectStore(section, { keyPath: 'id' });
 				}
 			}
-		}
+		},
+		blocked: onBlocked
 	});
 }
 
