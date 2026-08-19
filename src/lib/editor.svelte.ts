@@ -34,6 +34,17 @@ export function openEditor(editor: OpenEditor): void {
 	editorState.open = editor;
 }
 
+/*
+	The commit is attached where the field is, which is not always where the press was: a
+	Veranstaltung's name is a link, so its editor is opened by the row's own Umbenennen
+	action and only then finds the input it has to persist.
+*/
+export function attachCommit(id: string, commit: () => void): void {
+	if (isEditorOpen(id) && editorState.open !== null) {
+		editorState.open.commit = commit;
+	}
+}
+
 export function closeEditor(id: string): void {
 	if (!isEditorOpen(id)) {
 		return;

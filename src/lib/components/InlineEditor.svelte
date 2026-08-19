@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack, type Snippet } from 'svelte';
 	import {
 		abandonEditor,
+		attachCommit,
 		closeEditor,
+		editorState,
 		isEditorOpen,
 		openEditor,
 		trackField
@@ -13,18 +15,27 @@
 		label: string;
 		value: string;
 		oncommit: (value: string) => void;
+		/*
+			What stands in for the value while the editor is closed, where the row does not
+			show plain text — a Veranstaltung's name is a link into it. The call site then
+			owns the trigger as well and opens this editor by its id.
+		*/
+		display?: Snippet;
 	}
 
-	let { id, label, value, oncommit }: Props = $props();
+	let { id, label, value, oncommit, display }: Props = $props();
 
 	const fieldId = $props.id();
 	const editing = $derived(isEditorOpen(id));
 
-	let trigger = $state<HTMLButtonElement | null>(null);
+	let swap = $state<HTMLButtonElement | null>(null);
 	let field = $state<HTMLInputElement | null>(null);
+	// Held for the whole edit, because focus goes back to the trigger after the editor state
+	// that named it has already been cleared.
+	let trigger: HTMLElement | null = null;
 
 	function edit(): void {
-		openEditor({ id, commit: persist });
+		openEditor({ id, trigger: swap });
 	}
 
 	function persist(): void {
@@ -39,11 +50,13 @@
 		void returnFocus();
 	}
 
-	// The trigger is replaced by the input while editing, so the button to hand focus back to
-	// only exists again once the swap has been undone. This is what retires autofocus.
+	// The swap is replaced by the input while editing, so the button to hand focus back to
+	// only exists again — as a new element — once the swap has been undone. This is what
+	// retires autofocus. A trigger at the call site stays mounted throughout, so it is only
+	// asked for where this editor renders no swap of its own.
 	async function returnFocus(): Promise<void> {
 		await tick();
-		trigger?.focus();
+		(swap ?? trigger)?.focus();
 	}
 
 	function commitOnEnter(event: KeyboardEvent): void {
@@ -60,6 +73,10 @@
 		if (input === null) {
 			return;
 		}
+		untrack(() => {
+			attachCommit(id, persist);
+			trigger = editorState.open?.trigger ?? null;
+		});
 		input.focus();
 		input.select();
 		return trackField(input, {
@@ -82,8 +99,10 @@
 		onblur={() => closeEditor(id)}
 		onkeydown={commitOnEnter}
 	/>
+{:else if display !== undefined}
+	{@render display()}
 {:else}
-	<button bind:this={trigger} type="button" class="swap" onclick={edit}>{value}</button>
+	<button bind:this={swap} type="button" class="swap" onclick={edit}>{value}</button>
 {/if}
 
 <style>
