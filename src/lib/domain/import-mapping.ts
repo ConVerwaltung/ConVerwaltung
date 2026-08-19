@@ -62,6 +62,18 @@ export function defineImportMapping(
 	return { id: newRecordId(), name: trimmedName, columns };
 }
 
+// Remapping a saved Zuordnung happens during an Import, against a real file — the only
+// place its columns can be judged — and is saved back under the same name.
+export function remapImportMapping(
+	mapping: ImportMapping,
+	columns: Readonly<Record<string, ColumnTarget>>
+): ImportMapping {
+	if (identityColumnsOf(columns).length === 0) {
+		throw new Error('At least one column must be a Person-identity column');
+	}
+	return { ...mapping, columns };
+}
+
 export function listImportMappingsByName(
 	mappings: Record<string, ImportMapping>
 ): ImportMapping[] {

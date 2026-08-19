@@ -5,6 +5,9 @@ export const frameState = $state({
 	// The sentence naming what a reload would destroy, or null when nothing is at risk.
 	// The Import review is its only setter.
 	uncommittedWork: null as string | null,
+	// The Import review's unreadable file or unusable Zuordnung: the review cannot exist,
+	// so the sentence goes in the frame's banner slot. Cleared when another file is chosen.
+	fileError: null as string | null,
 	openEventId: null as string | null
 });
 
@@ -21,6 +24,10 @@ export function reloadForUpdate(): void {
 
 export function announce(fact: string): void {
 	frameState.statusFact = fact;
+}
+
+export function reportFileError(sentence: string | null): void {
+	frameState.fileError = sentence;
 }
 
 export function markUncommittedWork(loss: string | null): void {

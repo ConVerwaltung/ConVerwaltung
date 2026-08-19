@@ -8,6 +8,7 @@ import {
 	isImportMappingNameDefined,
 	listImportMappingsByName,
 	missingMappedColumns,
+	remapImportMapping,
 	shapeRows,
 	type ColumnTarget,
 	type ImportMapping
@@ -57,6 +58,24 @@ describe('defineImportMapping', () => {
 		};
 
 		expect(defineImportMapping({}, 'Ticketliste', columns).columns).toEqual(columns);
+	});
+});
+
+describe('remapImportMapping', () => {
+	it('replaces the columns and keeps id and name', () => {
+		const columns: Readonly<Record<string, ColumnTarget>> = {
+			Vorname: { kind: 'identity' },
+			Nachname: { kind: 'identity' },
+			Gruppe: { kind: 'role' }
+		};
+
+		const remapped = remapImportMapping(mapping('m-1', 'Ticketliste'), columns);
+
+		expect(remapped).toEqual({ id: 'm-1', name: 'Ticketliste', columns });
+	});
+
+	it('refuses a remap that names no Person', () => {
+		expect(() => remapImportMapping(mapping('m-1', 'Ticketliste'), { Gruppe: { kind: 'role' } })).toThrow();
 	});
 });
 

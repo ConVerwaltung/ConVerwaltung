@@ -63,6 +63,7 @@ describe('the app frame', () => {
 		frameState.updateWaiting = false;
 		frameState.statusFact = '';
 		frameState.uncommittedWork = null;
+		frameState.fileError = null;
 		visit('/', '/');
 	});
 
@@ -107,6 +108,28 @@ describe('the app frame', () => {
 
 		expect(getByText(/Speicher nicht verfügbar/)).toBeDefined();
 		expect(queryByRole('button', { name: 'Neu laden' })).toBeNull();
+		await expectNoAxeViolations(container);
+	});
+
+	it('holds the waiting version back while the Import cannot read its file', async () => {
+		noteUpdateWaiting(async () => {});
+		frameState.fileError = 'Datei „liste.csv“ kann nicht gelesen werden: ein Anführungszeichen ist in Zeile 12 nicht geschlossen.';
+
+		const { container, queryByRole, getByText } = render(FrameBanner);
+
+		expect(getByText(/Anführungszeichen/)).toBeDefined();
+		expect(queryByRole('button', { name: 'Neu laden' })).toBeNull();
+		await expectNoAxeViolations(container);
+	});
+
+	it('lets a failing store outrank the Import file error', async () => {
+		frameState.fileError = 'Datei „liste.csv“ kann nicht gelesen werden.';
+		libraryState.writeFailure = 'QuotaExceededError: quota exceeded';
+
+		const { container, getByText, queryByText } = render(FrameBanner);
+
+		expect(getByText(/Speicher nicht verfügbar/)).toBeDefined();
+		expect(queryByText(/liste.csv/)).toBeNull();
 		await expectNoAxeViolations(container);
 	});
 

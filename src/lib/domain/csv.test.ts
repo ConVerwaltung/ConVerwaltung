@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCsv, parseCsv } from './csv';
+import { CsvParseError, formatCsv, parseCsv } from './csv';
 
 describe('parseCsv', () => {
 	it('reads the first row as columns and the rest as rows', () => {
@@ -48,11 +48,34 @@ describe('parseCsv', () => {
 	});
 
 	it('rejects empty input', () => {
-		expect(() => parseCsv('')).toThrow();
+		expect(() => parseCsv('')).toThrow(CsvParseError);
 	});
 
 	it('rejects malformed quoting', () => {
-		expect(() => parseCsv('Name,Notiz\nAda,"offen\n')).toThrow();
+		expect(() => parseCsv('Name,Notiz\nAda,"offen\n')).toThrow(CsvParseError);
+	});
+
+	// The Import banner names the line and the remedy, so the failure has to carry both.
+	it('names the line a malformed quote stands in', () => {
+		try {
+			parseCsv('Name,Notiz\nAda,Gast\nGrace,"offen\n');
+			expect.unreachable();
+		} catch (error) {
+			expect(error).toBeInstanceOf(CsvParseError);
+			expect((error as CsvParseError).reason).toBe('quotes');
+			expect((error as CsvParseError).line).toBe(3);
+		}
+	});
+
+	it('names the repeated column', () => {
+		try {
+			parseCsv('Name,Rolle,Name\nAda,Gast,Zusatz\n');
+			expect.unreachable();
+		} catch (error) {
+			expect((error as CsvParseError).reason).toBe('duplicateColumn');
+			expect((error as CsvParseError).column).toBe('Name');
+			expect((error as CsvParseError).line).toBe(1);
+		}
 	});
 });
 

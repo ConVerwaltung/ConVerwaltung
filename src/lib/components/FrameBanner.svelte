@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { frameState, reloadForUpdate } from '$lib/frame.svelte';
 	import { libraryState } from '$lib/library.svelte';
+	import Icon from '$lib/icons/Icon.svelte';
 	import ConfirmDialog from './ConfirmDialog.svelte';
 
 	let confirming = $state(false);
@@ -14,12 +15,17 @@
 	}
 </script>
 
-<!-- One slot, two severities: a failing store outranks a waiting version, which is held
-     until the failure clears. -->
+<!-- One slot: a failing store outranks the Import's unreadable file, and both outrank a
+     waiting version, which is held until they clear. -->
 {#if libraryState.writeFailure !== null}
 	<p class="banner failure">
 		<span>Speicher nicht verfügbar — Änderungen werden nicht gesichert</span>
 		<span class="cause">{libraryState.writeFailure}</span>
+	</p>
+{:else if frameState.fileError !== null}
+	<p class="banner failure">
+		<Icon name="triangle-alert" label={null} />
+		<span>{frameState.fileError}</span>
 	</p>
 {:else if frameState.updateWaiting}
 	<p class="banner update">
