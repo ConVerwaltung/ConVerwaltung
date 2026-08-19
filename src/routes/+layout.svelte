@@ -12,6 +12,7 @@
 	import BootGate from '$lib/components/BootGate.svelte';
 	import FrameBanner from '$lib/components/FrameBanner.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import { handleEscape } from '$lib/editor.svelte';
 	import { noteUpdateWaiting, openEvent } from '$lib/frame.svelte';
 	import { bootLibrary, libraryState } from '$lib/library.svelte';
 	import { bootTheme } from '$lib/theme.svelte';
@@ -52,6 +53,10 @@
 		}
 	});
 </script>
+
+<!-- Escape has one meaning and one implementation, next to the editor state it acts on;
+     no screen carries a handler of its own. -->
+<svelte:window onkeydown={handleEscape} />
 
 <svelte:head>
 	<link rel="icon" href={favicon} />

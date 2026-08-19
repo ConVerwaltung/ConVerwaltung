@@ -90,3 +90,149 @@ a {
 	font-weight: 600;
 	color: var(--ink-mute);
 }
+
+/*
+	Three button shapes and one destructive modifier, as classes rather than a component:
+	the shape is the only thing the call sites share, and each keeps its own element, type
+	and handler. A disabled button is only ever a busy one, and busy is carried by the
+	label — there is no spinner and nothing animates.
+*/
+.btn {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-3);
+	padding: var(--space-3) var(--space-5);
+	border: 1px solid transparent;
+	border-radius: var(--radius);
+	background: none;
+	font-size: var(--text-sm);
+	line-height: 1.2;
+	cursor: pointer;
+}
+
+.btn.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: var(--on-accent);
+}
+
+.btn.primary:not(:disabled):hover {
+	background: var(--accent-hover);
+	border-color: var(--accent-hover);
+}
+
+.btn.secondary {
+	background: var(--surface);
+	border-color: var(--control);
+	color: var(--ink);
+}
+
+.btn.quiet {
+	padding-inline: var(--space-2);
+	color: var(--ink-mute);
+}
+
+.btn.secondary:not(:disabled):hover,
+.btn.quiet:not(:disabled):hover {
+	background: var(--hover);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+/* Destructive replaces the ink, and the border where there is one. No filled red exists. */
+.btn.destructive {
+	color: var(--danger);
+}
+
+.btn.secondary.destructive {
+	border-color: var(--danger);
+}
+
+.btn:disabled {
+	background: var(--raised);
+	border-color: var(--control);
+	color: var(--ink-mute);
+	cursor: default;
+}
+
+/*
+	Icon-only control. The 24x24 CSS px target floor is reached by padding around a 1em
+	glyph, so it carries no size of its own and still fits inside a --row.
+*/
+.icon-btn {
+	position: relative;
+	display: inline-flex;
+	padding: var(--space-3);
+	border: 1px solid transparent;
+	border-radius: var(--radius);
+	background: none;
+	color: var(--ink-mute);
+	line-height: 0;
+	cursor: pointer;
+}
+
+.icon-btn:not(:disabled):hover {
+	background: var(--hover);
+	color: var(--ink);
+}
+
+.icon-btn.destructive {
+	color: var(--danger);
+}
+
+.icon-btn:disabled {
+	color: var(--ink-mute);
+	cursor: default;
+}
+
+/*
+	The tooltip. The native title attribute is unreachable by keyboard and untouchable by
+	CSS, so the tip is generated content shown on hover and on :focus-visible alike. Its
+	empty alt text keeps it out of the accessible name, which comes from the .vh span the
+	button carries — that name survives a CSS failure, and voice control can target it.
+*/
+.icon-btn[data-tip]::after {
+	content: attr(data-tip) / '';
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	display: none;
+	margin-top: var(--space-2);
+	padding: var(--space-2) var(--space-3);
+	background: var(--raised);
+	border: 1px solid var(--rule-hard);
+	border-radius: var(--radius);
+	color: var(--ink);
+	font-size: var(--text-xs);
+	line-height: 1.2;
+	white-space: nowrap;
+	transform: translateX(-50%);
+}
+
+.icon-btn[data-tip]:hover::after,
+.icon-btn[data-tip]:focus-visible::after {
+	display: block;
+}
+
+/* The on-submit validation message, adjacent to the control it describes. */
+.field-error {
+	color: var(--danger);
+	font-size: var(--text-xs);
+}
+
+/*
+	Collapsing is native <details>. The default disclosure triangle is replaced by the
+	chevron the call site renders, so the marker is dropped here once instead of on every
+	screen that collapses a section.
+*/
+summary {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+	list-style: none;
+	cursor: pointer;
+}
+
+summary::-webkit-details-marker {
+	display: none;
+}

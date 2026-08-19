@@ -15,3 +15,32 @@ axe.configure({
 });
 
 afterEach(cleanup);
+
+/*
+	jsdom has no top layer: HTMLDialogElement reflects `open` and implements nothing else,
+	so a native <dialog> arrives without showModal and without close. The dialog primitive
+	is deliberately native — its focus trap and Escape come from the browser — so the gap
+	is filled here instead of being guarded around in the component.
+*/
+const dialogPrototype: Partial<HTMLDialogElement> = HTMLDialogElement.prototype;
+
+if (dialogPrototype.showModal === undefined) {
+	Object.defineProperties(HTMLDialogElement.prototype, {
+		showModal: {
+			configurable: true,
+			value(this: HTMLDialogElement): void {
+				this.open = true;
+			}
+		},
+		close: {
+			configurable: true,
+			value(this: HTMLDialogElement): void {
+				if (!this.open) {
+					return;
+				}
+				this.open = false;
+				this.dispatchEvent(new Event('close'));
+			}
+		}
+	});
+}
