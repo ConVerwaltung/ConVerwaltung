@@ -141,6 +141,33 @@ export function updateExportViewColumns(
 	return { ...view, columns: normalizeColumns(columns) };
 }
 
+// A duplicate is a record of its own, and a name is what tells two Ansichten apart in
+// their register — so the copy is named before it exists, never after.
+function freeCopyName(views: Record<string, ExportView>, view: ExportView): string {
+	const base = `${view.name} (Kopie)`;
+	let candidate = base;
+	let attempt = 1;
+	while (isExportViewNameDefined(views, view.level, view.event, candidate)) {
+		attempt += 1;
+		candidate = `${base} ${attempt}`;
+	}
+	return candidate;
+}
+
+export function duplicateExportView(
+	views: Record<string, ExportView>,
+	view: ExportView
+): ExportView {
+	return buildExportView(
+		newRecordId(),
+		freeCopyName(views, view),
+		view.level,
+		view.event,
+		filterOf(view),
+		view.columns
+	);
+}
+
 export function updateExportViewFilter(
 	view: ExportView,
 	filter: readonly FilterCondition[]

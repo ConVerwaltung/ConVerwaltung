@@ -20,17 +20,31 @@
 	<p>Veranstaltung nicht gefunden.</p>
 	<p><a href={resolve('/')}>Zurück zur Übersicht</a></p>
 {:else}
-	<section>
-		<h1>Export — {event.name}</h1>
-		<p>
-			<a href={resolve('/event/[id]/teilnehmer', { id: event.id })}>Zurück zur Veranstaltung</a>
-		</p>
-		<p>
-			Eine Export-Ansicht legt fest, welche Teilnehmer der Filter erfasst und welche Felder in
-			welcher Reihenfolge zu Spalten werden. Beim Herunterladen entsteht daraus eine CSV-Datei mit
-			einer Zeile je erfasstem Teilnehmer.
-		</p>
+	<div class="page-head">
+		<h1>{event.name}</h1>
+		<p class="meta">Export</p>
+	</div>
 
-		<ExportViewManager level="participant" eventId={event.id} />
-	</section>
+	<!-- The register is the screen: an Ansicht is fixed and run often, and the editor is
+	     the rare place. -->
+	<ExportViewManager level="participant" eventId={event.id} />
 {/if}
+
+<style>
+	.page-head {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-5);
+		margin-bottom: var(--space-6);
+	}
+
+	h1 {
+		font-size: var(--text-xl);
+		font-weight: 600;
+	}
+
+	.meta {
+		font-size: var(--text-sm);
+		color: var(--ink-mute);
+	}
+</style>

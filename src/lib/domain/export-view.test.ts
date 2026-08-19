@@ -5,6 +5,7 @@ import type { FilterCondition } from './export-filter';
 import {
 	copyExportViewToEvent,
 	defineExportView,
+	duplicateExportView,
 	exportFileName,
 	filterOf,
 	isExportViewNameDefined,
@@ -213,6 +214,42 @@ describe('updateExportViewColumns', () => {
 
 	it('rejects dropping the last column', () => {
 		expect(() => updateExportViewColumns(view('a', 'Adressliste'), [])).toThrow();
+	});
+});
+
+describe('duplicateExportView', () => {
+	it('copies the filter and the columns under a name of its own', () => {
+		const original: ExportView = {
+			...view('a', 'Gästeliste', 'participant', 'ev1'),
+			filter: [{ kind: 'role', roleId: 'ro1', holds: true }]
+		};
+
+		const copy = duplicateExportView({ a: original }, original);
+
+		expect(copy.name).toBe('Gästeliste (Kopie)');
+		expect(copy.id).not.toBe(original.id);
+		expect(copy.level).toBe('participant');
+		expect(copy.event).toBe('ev1');
+		expect(copy.filter).toEqual(original.filter);
+		expect(copy.columns).toEqual(original.columns);
+	});
+
+	it('counts up while the copy name is taken', () => {
+		const original = view('a', 'Adressliste');
+		const views = {
+			a: original,
+			b: view('b', 'Adressliste (Kopie)'),
+			c: view('c', 'Adressliste (Kopie) 2')
+		};
+
+		expect(duplicateExportView(views, original).name).toBe('Adressliste (Kopie) 3');
+	});
+
+	it('ignores a name taken at another level', () => {
+		const original = view('a', 'Adressliste');
+		const views = { a: original, b: view('b', 'Adressliste (Kopie)', 'participant', 'ev1') };
+
+		expect(duplicateExportView(views, original).name).toBe('Adressliste (Kopie)');
 	});
 });
 

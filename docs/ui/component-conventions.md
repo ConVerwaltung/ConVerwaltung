@@ -126,6 +126,7 @@ answer; extend it rather than picking a glyph ad hoc.
 | Teilnehmer | `users` |
 | Veranstaltungen | `calendar-days` |
 | Stammdaten | `library` |
+| Spalte nach oben / nach unten | `arrow-up` / `arrow-down` |
 | Aufklappen / zuklappen | `chevron-right` / `chevron-down` |
 | Schließen | `x` |
 | Warnung, Fehler | `triangle-alert` |
