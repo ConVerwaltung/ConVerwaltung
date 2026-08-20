@@ -52,3 +52,14 @@ export function listParticipants(
 		.filter((participant) => participant.event === eventId)
 		.sort(compareByCreation);
 }
+
+// The other way round: every Event one Person takes part in. The Person screen reads its
+// Teilnahmen through this, and the Erasure dialog names the Events from it.
+export function listParticipantsOfPerson(
+	participants: Record<string, Participant>,
+	personId: string
+): Participant[] {
+	return Object.values(participants)
+		.filter((participant) => participant.person === personId)
+		.sort(compareByCreation);
+}

@@ -5,6 +5,7 @@ import {
 	collectParticipantScopedDeletions,
 	isParticipant,
 	listParticipants,
+	listParticipantsOfPerson,
 	type Participant
 } from './participant';
 import { createEmptyLibrary } from './library';
@@ -110,6 +111,37 @@ describe('listParticipants', () => {
 		};
 
 		const participants = listParticipants(poolWith(newer, elsewhere, older), 'summer-fest');
+
+		expect(participants).toEqual([older, newer]);
+	});
+});
+
+describe('listParticipantsOfPerson', () => {
+	it('is empty for a Person without Participants', () => {
+		expect(listParticipantsOfPerson({}, 'ada')).toEqual([]);
+	});
+
+	it('lists only that Person’s own Participants, in creation order of their UUID v7 ids', () => {
+		const older: Participant = {
+			id: '018f0000-0000-7000-8000-000000000000',
+			event: 'summer-fest',
+			person: 'ada',
+			roles: []
+		};
+		const newer: Participant = {
+			id: '01900000-0000-7000-8000-000000000000',
+			event: 'autumn-fest',
+			person: 'ada',
+			roles: []
+		};
+		const someoneElse: Participant = {
+			id: '01910000-0000-7000-8000-000000000000',
+			event: 'summer-fest',
+			person: 'grace',
+			roles: []
+		};
+
+		const participants = listParticipantsOfPerson(poolWith(newer, someoneElse, older), 'ada');
 
 		expect(participants).toEqual([older, newer]);
 	});
