@@ -181,7 +181,7 @@ scrollbars and native form controls follow for free.
 
 An **inline script in `src/app.html`**, in `<head>` above `%sveltekit.head%`, reads
 `localStorage` and sets the attribute. Verified to survive prerendering and precaching, and
-to survive verbatim into the `200.html` SPA fallback. It is ES5-safe (`var`, `try`/`catch`,
+to survive verbatim into the `404.html` SPA fallback. It is ES5-safe (`var`, `try`/`catch`,
 no optional chaining) because it is template text, not a module Vite transpiles — and the
 `try`/`catch` is required, not defensive: `localStorage` *throws* when storage access is
 denied.

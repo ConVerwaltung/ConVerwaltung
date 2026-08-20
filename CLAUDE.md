@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-AMTS (Adaptives Teilnehmer-Management-System) — event participant management: import participant lists, enrich with custom data and notes, export structured views. Architecture and domain language are fully specified in docs. **Implementation has started**: the SvelteKit PWA scaffold exists (app shell only, no domain features yet). Not a git repository.
+AMTS (Adaptives Teilnehmer-Management-System) — event participant management: import participant lists, enrich with custom data and notes, export structured views. Architecture and domain language are fully specified in docs. **Implementation has started**: the SvelteKit PWA scaffold exists (app shell only, no domain features yet). Git repository with remote `ConVerwaltung/ConVerwaltung`; `main` deploys to GitHub Pages via `.github/workflows/deploy.yml` (see README, Hosting).
 
 ## Commands
 

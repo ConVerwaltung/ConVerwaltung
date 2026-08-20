@@ -37,7 +37,7 @@ This replaces today's `?id=<uuid>` query addressing. **Each route gets its own `
 today it is the constant `AMTS`.
 
 **Three dynamic subtrees** — `event/[id]`, `person/[id]`, and the two `<viewId>` editors
-beneath them — are served by a prerendered SPA fallback (`200.html`) rather than being
+beneath them — are served by a prerendered SPA fallback (`404.html`) rather than being
 prerendered, because their ids are runtime data and cannot be enumerated. Static routes
 stay prerendered. See [ADR-0008](../adr/0008-svelte-vite-typescript-stack.md) and the build
 backlog for the configuration.
