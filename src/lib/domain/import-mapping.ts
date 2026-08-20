@@ -62,6 +62,52 @@ export function defineImportMapping(
 	return { id: newRecordId(), name: trimmedName, columns };
 }
 
+// A Zuordnung is chosen by name in the Import, so two of a name are indistinguishable
+// there — unlike a Person, where two of a name is a fact about the world.
+export function renameImportMapping(
+	mappings: Record<string, ImportMapping>,
+	mapping: ImportMapping,
+	name: string
+): ImportMapping {
+	const trimmedName = name.trim();
+	if (trimmedName === '') {
+		throw new Error('Import Mapping name must not be blank');
+	}
+	if (isImportMappingNameDefined(otherMappings(mappings, mapping.id), trimmedName)) {
+		throw new Error('Import Mapping name is already defined');
+	}
+	return { ...mapping, name: trimmedName };
+}
+
+function otherMappings(
+	mappings: Record<string, ImportMapping>,
+	id: string
+): Record<string, ImportMapping> {
+	return Object.fromEntries(Object.entries(mappings).filter(([mappingId]) => mappingId !== id));
+}
+
+// A copy is a record of its own, and the name is what tells two Zuordnungen apart in the
+// Import's list — so it is named before it exists, never after.
+function freeCopyName(mappings: Record<string, ImportMapping>, mapping: ImportMapping): string {
+	const base = `${mapping.name} (Kopie)`;
+	let candidate = base;
+	let attempt = 1;
+	while (isImportMappingNameDefined(mappings, candidate)) {
+		attempt += 1;
+		candidate = `${base} ${attempt}`;
+	}
+	return candidate;
+}
+
+// The columns travel unchanged: a duplicate exists to be remapped against the next file
+// shape, and starting from the reading that works is the whole point of taking it.
+export function duplicateImportMapping(
+	mappings: Record<string, ImportMapping>,
+	mapping: ImportMapping
+): ImportMapping {
+	return { id: newRecordId(), name: freeCopyName(mappings, mapping), columns: mapping.columns };
+}
+
 // Remapping a saved Zuordnung happens during an Import, against a real file — the only
 // place its columns can be judged — and is saved back under the same name.
 export function remapImportMapping(

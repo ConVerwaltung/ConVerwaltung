@@ -3,12 +3,14 @@ import { validate as uuidValidate, version as uuidVersion } from 'uuid';
 import type { CsvTable } from './csv';
 import {
 	defineImportMapping,
+	duplicateImportMapping,
 	identityChainOf,
 	identityColumnsOf,
 	isImportMappingNameDefined,
 	listImportMappingsByName,
 	missingMappedColumns,
 	remapImportMapping,
+	renameImportMapping,
 	shapeRows,
 	type ColumnTarget,
 	type ImportMapping
@@ -76,6 +78,62 @@ describe('remapImportMapping', () => {
 
 	it('refuses a remap that names no Person', () => {
 		expect(() => remapImportMapping(mapping('m-1', 'Ticketliste'), { Gruppe: { kind: 'role' } })).toThrow();
+	});
+});
+
+describe('renameImportMapping', () => {
+	it('trims the new name and keeps id and columns', () => {
+		const mappings = { 'm-1': mapping('m-1', 'Ticketliste') };
+
+		const renamed = renameImportMapping(mappings, mappings['m-1'], '  Anmeldeliste ');
+
+		expect(renamed).toEqual({ id: 'm-1', name: 'Anmeldeliste', columns: identityOnly });
+	});
+
+	it('refuses a blank name', () => {
+		const mappings = { 'm-1': mapping('m-1', 'Ticketliste') };
+
+		expect(() => renameImportMapping(mappings, mappings['m-1'], '  ')).toThrow();
+	});
+
+	it('refuses a name another Import Mapping already holds', () => {
+		const mappings = { 'm-1': mapping('m-1', 'Ticketliste'), 'm-2': mapping('m-2', 'Zusagen') };
+
+		expect(() => renameImportMapping(mappings, mappings['m-1'], 'Zusagen')).toThrow();
+	});
+
+	it('accepts the name the Import Mapping already holds', () => {
+		const mappings = { 'm-1': mapping('m-1', 'Ticketliste') };
+
+		expect(renameImportMapping(mappings, mappings['m-1'], 'Ticketliste').name).toBe('Ticketliste');
+	});
+});
+
+describe('duplicateImportMapping', () => {
+	it('copies the columns under a free copy name and a new UUID v7 id', () => {
+		const columns: Readonly<Record<string, ColumnTarget>> = {
+			Vorname: { kind: 'identity' },
+			Gruppe: { kind: 'role' }
+		};
+		const mappings = { 'm-1': mapping('m-1', 'Ticketliste', columns) };
+
+		const copy = duplicateImportMapping(mappings, mappings['m-1']);
+
+		expect(copy.name).toBe('Ticketliste (Kopie)');
+		expect(copy.columns).toEqual(columns);
+		expect(copy.id).not.toBe('m-1');
+		expect(uuidValidate(copy.id)).toBe(true);
+		expect(uuidVersion(copy.id)).toBe(7);
+	});
+
+	it('counts up while the copy name is taken', () => {
+		const mappings = {
+			'm-1': mapping('m-1', 'Ticketliste'),
+			'm-2': mapping('m-2', 'Ticketliste (Kopie)'),
+			'm-3': mapping('m-3', 'Ticketliste (Kopie) 2')
+		};
+
+		expect(duplicateImportMapping(mappings, mappings['m-1']).name).toBe('Ticketliste (Kopie) 3');
 	});
 });
 
