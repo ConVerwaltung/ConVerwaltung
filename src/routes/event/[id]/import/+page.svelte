@@ -89,7 +89,9 @@
 	let draftTargets = $state<Record<string, string>>({});
 	let selectedMappingId = $state('');
 	let unresolvedColumns = $state<string[]>([]);
-	let showAllColumns = $state(false);
+	// Wide while the Zuordnung is made by hand, narrow once a saved one carries it: a column
+	// cannot be mapped in a head it has been dropped from.
+	let showAllColumns = $state(true);
 	let filter = $state<ReviewFilter>('alle');
 	let query = $state('');
 	let answers = $state<Record<number, Answer>>({});
@@ -232,11 +234,10 @@
 	}
 
 	// The identity columns are folded into `Name in der Datei`, whose head carries their
-	// selects — otherwise Vorname and Nachname stand in every row twice.
+	// selects — otherwise Vorname and Nachname stand in every row twice. Every other column
+	// stays shown until the organizer narrows the register: mapping the first column must not
+	// take the still unmapped ones off the screen.
 	function isShownColumn(column: FileColumn): boolean {
-		if (!mapped) {
-			return true;
-		}
 		if (column.name === '') {
 			return showAllColumns;
 		}
@@ -295,7 +296,7 @@
 		}
 		selectedMappingId = '';
 		unresolvedColumns = [];
-		showAllColumns = false;
+		showAllColumns = true;
 		filter = 'alle';
 		query = '';
 		namingMapping = false;
@@ -378,9 +379,13 @@
 		const applied = libraryState.library.importMappings[selectedMappingId];
 		if (applied === undefined) {
 			draftTargets = Object.fromEntries(mappableColumns.map((column) => [column, IGNORE]));
+			showAllColumns = true;
 			fileProblem = null;
 			return;
 		}
+		// The Zuordnung already answers every column, so the register may narrow to the ones
+		// it names — the toggle brings the rest back when a mapping is in doubt.
+		showAllColumns = false;
 		const { targets, skipped } = targetsOf(applied);
 		draftTargets = targets;
 		unresolvedColumns = skipped;

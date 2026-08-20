@@ -306,8 +306,15 @@ it, and its commit block ends up below 147 rows.
 ### The width, and how it is paid
 
 The register carries the five review columns plus **only the mapped file columns** — ~8,
-which fit 1280px without horizontal scrolling. A quiet **`Alle 17 Spalten zeigen`** brings
-the ignored ones back for the moment a mapping is in doubt.
+which fit 1280px without horizontal scrolling. A quiet toggle switches the two widths:
+**`Alle 17 Spalten zeigen`** brings the ignored ones back for the moment a mapping is in
+doubt, **`Nur zugeordnete Spalten zeigen`** narrows again.
+
+**Which width the register opens in follows where the Zuordnung comes from.** A saved
+Zuordnung already answers every column, so applying one narrows the register at once. A
+Zuordnung made **by hand** starts wide and stays wide: mapping the first column must not take
+the columns still to be mapped off the screen — the head is the only place they can be
+mapped, and the organizer defines several before looking at a single row.
 
 The **identity columns are folded into `Name in der Datei`**, whose head carries the chain
 (`aus Vorname + Nachname`) and their selects; otherwise Vorname and Nachname would be
